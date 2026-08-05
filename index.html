@@ -350,6 +350,25 @@
   }
   .choice.correct .num, .choice.wrong .num { background: rgba(0,0,0,0.18); border-color: transparent; color: inherit; }
 
+  .listen-big { position: static; font-size: 38px; width: 84px; height: 84px; margin: 4px 0; }
+  .cloze { font-size: 19px; line-height: 1.6; color: var(--text); text-align: center; }
+  .cloze b { color: var(--accent-2); letter-spacing: 0.06em; }
+
+  .assembled {
+    font-size: 30px; font-weight: 800; letter-spacing: 0.12em; min-height: 42px;
+    color: var(--text-strong);
+  }
+  .letters { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .letter {
+    width: 46px; height: 52px; font-size: 21px; font-weight: 700; font-family: inherit;
+    border-radius: var(--radius-sm); border: 1px solid var(--border-strong);
+    background: var(--surface-grad); color: var(--text-strong); cursor: pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.14s var(--ease), border-color 0.14s var(--ease);
+  }
+  .letter:hover:not([disabled]) { border-color: var(--accent); transform: translateY(-3px); }
+  .letter[disabled] { opacity: 0.25; cursor: default; box-shadow: none; }
+
   .feedback { font-size: 15px; font-weight: 700; min-height: 22px; letter-spacing: 0.01em; }
   .feedback.ok { color: var(--green); animation: fbIn 0.3s var(--ease); }
   .feedback.no { color: var(--red); animation: fbIn 0.3s var(--ease); }
@@ -685,6 +704,19 @@
       <div class="stat-box"><div class="num" id="stLearned">0</div><div class="lbl">Изучается</div></div>
       <div class="stat-box"><div class="num" id="stDue">0</div><div class="lbl">К повторению сейчас</div></div>
       <div class="stat-box"><div class="num" id="stStreak">0</div><div class="lbl">Дней подряд 🔥</div></div>
+      <div class="stat-box"><div class="num" id="stLeech">0</div><div class="lbl">Западают</div></div>
+    </div>
+
+    <div class="info-card" id="leechCard" hidden>
+      <h3>🧨 Западающие слова</h3>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.5">
+        Слова, которые ты провалила чаще всего. Число — сколько раз не вспомнила.
+      </p>
+      <table><tbody id="leechTable"></tbody></table>
+      <div class="goal-row" style="margin-top:14px">
+        Считать западающим после провалов:
+        <input type="number" id="leechInput" min="2" max="20" step="1" />
+      </div>
     </div>
 
     <div class="goal-row">
@@ -809,7 +841,10 @@ function newCard(en, ru, example) {
     en, ru, example: example || '',
     reps: 0, interval: 0, ease: 2.5,
     due: null,        // null = новое слово
-    introduced: false
+    introduced: false,
+    order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
+    lapses: 0,             // сколько раз слово провалено — в отличие от reps не обнуляется
+    lastMode: null
   };
 }
 
@@ -819,7 +854,8 @@ function defaults() {
     sessionNew: 0, sessionDate: today(),
     dailyGoal: 20, reviewsToday: 0, reviewsDate: today(),
     newPerDay: DEFAULT_NEW_PER_DAY,
-    streak: 0, lastStudyDate: null
+    streak: 0, lastStudyDate: null,
+    leechThreshold: 5
   };
 }
 
@@ -830,10 +866,16 @@ function load() {
       const d = JSON.parse(raw);
       // бэкфилл недостающих полей (миграция со старой версии)
       const def = defaults();
-      for (const k of ['dailyGoal', 'reviewsToday', 'reviewsDate', 'streak', 'lastStudyDate', 'sessionNew', 'sessionDate', 'newPerDay']) {
+      for (const k of ['dailyGoal', 'reviewsToday', 'reviewsDate', 'streak', 'lastStudyDate', 'sessionNew', 'sessionDate', 'newPerDay', 'leechThreshold']) {
         if (d[k] === undefined) d[k] = def[k];
       }
-      d.cards.forEach(c => { if (c.example === undefined) c.example = ''; });
+      d.cards.forEach(c => {
+        if (c.example === undefined) c.example = '';
+        // колода импортировалась по алфавиту — случайный order раскидывает её один раз и навсегда
+        if (c.order === undefined) c.order = Math.random();
+        if (c.lapses === undefined) c.lapses = 0;
+        if (c.lastMode === undefined) c.lastMode = null;
+      });
       return d;
     } catch (e) {}
   }
@@ -891,7 +933,7 @@ function pickCard() {
   const due = dueCards().sort((a, b) => a.due - b.due);
   if (due.length) return due[0];
   // 2) новые слова — в пределах лимита, либо без ограничения в режиме «сверх лимита»
-  const fresh = newCards();
+  const fresh = newCards().sort((a, b) => a.order - b.order);
   if (fresh.length && (data.sessionNew < data.newPerDay || overLimit)) return fresh[0];
   // 3) сверх лимита и новых не осталось — даём ближайшее будущее слово для тренировки
   if (overLimit) {
@@ -901,11 +943,41 @@ function pickCard() {
   return null;
 }
 
-// Какой режим показать для карточки (постепенное усложнение)
-function modeFor(card) {
-  if (!card.introduced || card.reps === 0) return 'choice'; // узнавание
-  if (card.reps >= 4 && Math.random() < 0.35) return 'flip'; // самопроверка
-  return 'type'; // активное припоминание
+// Пул режимов по стадии освоения: узнавание → производство → закрепление
+function modesFor(card) {
+  if (!card.introduced || card.reps === 0) return ['choice'];
+  if (card.reps < 3) return ['choiceEn', 'type', 'cloze'];
+  return ['type', 'flip', 'cloze', 'assemble', 'listen'];
+}
+
+// Пропуск в примере возможен, только если слово встречается в нём ровно в словарной форме
+function clozeParts(card) {
+  const base = card.en.replace(/^to /, '');
+  if (!card.example || !base || /\s/.test(base)) return null;
+  const re = new RegExp('\\b' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+  const m = card.example.match(re);
+  if (!m) return null;
+  return {
+    before: card.example.slice(0, m.index),
+    after: card.example.slice(m.index + m[0].length)
+  };
+}
+
+function modeUsable(mode, card) {
+  const base = card.en.replace(/^to /, '');
+  if (mode === 'cloze') return !!clozeParts(card);
+  if (mode === 'assemble') return base.length >= 3 && base.length <= 12 && !/\s/.test(base);
+  if (mode === 'listen') return !!window.speechSynthesis;
+  return true;
+}
+
+function pickMode(card) {
+  const pool = modesFor(card).filter(m => modeUsable(m, card));
+  if (!pool.length) return 'type';
+  // подряд один и тот же режим не даём — иначе разнообразие не чувствуется
+  const varied = pool.filter(m => m !== card.lastMode);
+  const from = varied.length ? varied : pool;
+  return from[Math.floor(Math.random() * from.length)];
 }
 
 //============ Интервальное повторение (SM-2 lite) ============
@@ -914,6 +986,7 @@ function grade(card, quality) {
   if (!card.introduced) { card.introduced = true; data.sessionNew++; }
 
   if (quality === 'again') {
+    card.lapses = (card.lapses || 0) + 1;
     card.reps = 0;
     card.ease = Math.max(1.3, card.ease - 0.2);
     card.interval = 0;
@@ -985,7 +1058,8 @@ let overLimit = false; // тренировка сверх дневного ли�
 function nextCard() {
   current = pickCard();
   aheadMode = overLimit;
-  currentMode = current ? modeFor(current) : null;
+  currentMode = current ? pickMode(current) : null;
+  if (current) current.lastMode = currentMode;
   renderCard();
   updateProgress();
 }
@@ -1009,17 +1083,22 @@ function renderCard() {
     if (ahead) ahead.onclick = () => { overLimit = true; nextCard(); };
     return;
   }
-  if (currentMode === 'choice') return renderChoice();
+  if (currentMode === 'choice') return renderChoice('en2ru');
+  if (currentMode === 'choiceEn') return renderChoice('ru2en');
   if (currentMode === 'type') return renderType();
+  if (currentMode === 'listen') return renderListen();
+  if (currentMode === 'cloze') return renderCloze();
+  if (currentMode === 'assemble') return renderAssemble();
   return renderFlip();
 }
 
-// --- Режим 1: выбор из вариантов (узнавание) ---
-function renderChoice() {
-  const correct = current.ru;
+// --- Режим 1: выбор из вариантов. 'en2ru' — узнавание, 'ru2en' — подготовка к вводу ---
+function renderChoice(dir) {
+  const askEn = dir !== 'ru2en';
+  const correct = askEn ? current.ru : current.en;
   const distractors = data.cards
     .filter(c => c.id !== current.id)
-    .map(c => c.ru)
+    .map(c => askEn ? c.ru : c.en)
     .filter((v, i, arr) => arr.indexOf(v) === i && v !== correct);
   shuffle(distractors);
   const opts = shuffle([correct, ...distractors.slice(0, 3)]);
@@ -1027,20 +1106,23 @@ function renderChoice() {
   const area = document.getElementById('cardArea');
   area.innerHTML = `
     <div class="card">
-      <span class="mode-tag">Новое слово · выбери перевод</span>
-      <div class="word">${esc(current.en)}</div>
-      <button class="speak-btn" id="speakBtn" title="Произнести">🔊</button>
+      <span class="mode-tag">${askEn ? 'Выбери перевод' : 'Выбери английское слово'}</span>
+      <div class="word">${esc(askEn ? current.en : current.ru)}</div>
+      ${askEn ? '<button class="speak-btn" id="speakBtn" title="Произнести">🔊</button>' : ''}
     </div>
     <div class="choices" id="choices">
       ${opts.map((o, i) => `<button class="choice" data-v="${esc(o)}"><span class="num">${i+1}</span>${esc(o)}</button>`).join('')}
     </div>
     <div class="feedback" id="fb"></div>`;
-  document.getElementById('speakBtn').onclick = () => speak(current.en);
-  speak(current.en);
+  if (askEn) {
+    document.getElementById('speakBtn').onclick = () => speak(current.en);
+    speak(current.en);
+  }
 
   document.querySelectorAll('#choices .choice').forEach(btn => {
     btn.onclick = () => {
       const ok = btn.dataset.v === correct;
+      if (!askEn) speak(current.en);
       document.querySelectorAll('#choices .choice').forEach(b => {
         b.style.pointerEvents = 'none';
         if (b.dataset.v === correct) b.classList.add('correct');
@@ -1066,12 +1148,7 @@ function renderType() {
       <div class="feedback" id="fb"></div>
     </div>
     <button class="btn-primary" id="checkBtn" style="width:100%">Проверить (Enter)</button>`;
-
-  const input = document.getElementById('typeIn');
-  input.focus();
-  const submit = () => checkTyped(input.value);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-  document.getElementById('checkBtn').onclick = submit;
+  bindTypeInput();
 }
 
 function checkTyped(value) {
@@ -1102,6 +1179,99 @@ function checkTyped(value) {
     document.getElementById('iWasRight').onclick = () => { grade(current, 'good'); nextCard(); };
     if (current.example) showExample(area);
   }
+}
+
+// --- Режим: на слух ---
+function renderListen() {
+  const area = document.getElementById('cardArea');
+  area.innerHTML = `
+    <div class="card">
+      <span class="mode-tag">Послушай и напиши</span>
+      <button class="speak-btn listen-big" id="speakBtn" title="Повторить">🔊</button>
+      <input class="type-input" id="typeIn" placeholder="english word…" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <div class="feedback" id="fb"></div>
+    </div>
+    <button class="btn-primary" id="checkBtn" style="width:100%">Проверить (Enter)</button>`;
+
+  document.getElementById('speakBtn').onclick = () => speak(current.en);
+  speak(current.en);
+  bindTypeInput();
+}
+
+// --- Режим: пропуск в предложении ---
+function renderCloze() {
+  const p = clozeParts(current);
+  const area = document.getElementById('cardArea');
+  area.innerHTML = `
+    <div class="card">
+      <span class="mode-tag">Вставь пропущенное слово</span>
+      <div class="cloze">${esc(p.before)}<b>_____</b>${esc(p.after)}</div>
+      <div class="prompt-lang">${esc(current.ru)}</div>
+      <input class="type-input" id="typeIn" placeholder="english word…" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <div class="feedback" id="fb"></div>
+    </div>
+    <button class="btn-primary" id="checkBtn" style="width:100%">Проверить (Enter)</button>`;
+  bindTypeInput();
+}
+
+function bindTypeInput() {
+  const input = document.getElementById('typeIn');
+  input.focus();
+  const submit = () => checkTyped(input.value);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  document.getElementById('checkBtn').onclick = submit;
+}
+
+// --- Режим: собрать слово из букв (лечит орфографию) ---
+function renderAssemble() {
+  const target = current.en.replace(/^to /, '');
+  const pool = shuffle(target.split('').map(ch => ({ ch, used: false })));
+  const picked = [];
+
+  const area = document.getElementById('cardArea');
+  area.innerHTML = `
+    <div class="card">
+      <span class="mode-tag">Собери слово из букв</span>
+      <div class="translation">${esc(current.ru)}</div>
+      <div class="assembled" id="slot"></div>
+      <div class="letters" id="letters"></div>
+      <div class="feedback" id="fb"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" id="undoBtn">← Стереть</button>
+      <button class="btn-primary" id="checkBtn" style="flex:1">Проверить</button>
+    </div>`;
+
+  const slot = document.getElementById('slot');
+  const host = document.getElementById('letters');
+  function draw() {
+    slot.textContent = picked.map(p => p.ch).join('') || '·····';
+    host.innerHTML = pool
+      .map((p, i) => `<button class="letter" data-i="${i}"${p.used ? ' disabled' : ''}>${esc(p.ch)}</button>`)
+      .join('');
+    host.querySelectorAll('.letter').forEach(b => {
+      b.onclick = () => {
+        const p = pool[+b.dataset.i];
+        if (p.used) return;
+        p.used = true; picked.push(p); draw();
+      };
+    });
+  }
+  draw();
+
+  document.getElementById('undoBtn').onclick = () => {
+    const p = picked.pop();
+    if (p) { p.used = false; draw(); }
+  };
+  document.getElementById('checkBtn').onclick = () => {
+    const ok = picked.map(p => p.ch).join('').toLowerCase() === target.toLowerCase();
+    const fb = document.getElementById('fb');
+    fb.innerHTML = ok ? '✓ Верно!' : '✗ Правильно: <b>' + esc(target) + '</b>';
+    fb.className = 'feedback ' + (ok ? 'ok' : 'no');
+    speak(current.en);
+    grade(current, ok ? 'good' : 'again');
+    setTimeout(nextCard, ok ? 800 : 1700);
+  };
 }
 
 // --- Режим 3: классическая карточка с самооценкой (зрелые слова) ---
@@ -1185,7 +1355,7 @@ document.addEventListener('keydown', e => {
       grade(current, map[e.key]); nextCard();
     }
   }
-  if (currentMode === 'choice' && ['1','2','3','4'].includes(e.key)) {
+  if ((currentMode === 'choice' || currentMode === 'choiceEn') && ['1','2','3','4'].includes(e.key)) {
     const btns = document.querySelectorAll('#choices .choice');
     const idx = +e.key - 1;
     if (btns[idx]) btns[idx].click();
@@ -1374,7 +1544,24 @@ function renderStats() {
   document.getElementById('stStreak').textContent = data.streak;
   document.getElementById('goalInput').value = data.dailyGoal;
   document.getElementById('newPerDayInput').value = data.newPerDay;
+  document.getElementById('leechInput').value = data.leechThreshold;
+  renderLeeches();
   updatePlanHint();
+}
+
+function leechCards() {
+  return data.cards
+    .filter(c => (c.lapses || 0) >= data.leechThreshold)
+    .sort((a, b) => b.lapses - a.lapses);
+}
+
+function renderLeeches() {
+  const list = leechCards();
+  document.getElementById('stLeech').textContent = list.length;
+  document.getElementById('leechCard').hidden = list.length === 0;
+  document.getElementById('leechTable').innerHTML = list.slice(0, 30).map(c =>
+    `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td><td style="text-align:right">${c.lapses}×</td></tr>`
+  ).join('');
 }
 function updatePlanHint() {
   const remaining = data.cards.filter(c => !c.introduced).length;
@@ -1385,6 +1572,10 @@ function updatePlanHint() {
 document.getElementById('goalInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
   if (v >= 5) { data.dailyGoal = v; save(data); updateProgress(); }
+});
+document.getElementById('leechInput').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (v >= 2) { data.leechThreshold = v; save(data); renderLeeches(); }
 });
 document.getElementById('newPerDayInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
