@@ -360,6 +360,12 @@
   }
   .mistake-head { font-weight: 800; color: var(--text-strong); font-size: 15px; }
   .mistake-ex { color: var(--muted); font-size: 13.5px; }
+  .mistake-ai {
+    margin-top: 2px; padding-top: 10px;
+    border-top: 1px dashed rgba(148,163,184,0.35);
+    color: var(--text); font-size: 14px;
+  }
+  .mistake-ai.pending { color: var(--muted-2); font-style: italic; }
 
   .listen-big { position: static; font-size: 38px; width: 84px; height: 84px; margin: 4px 0; }
   .cloze { font-size: 19px; line-height: 1.6; color: var(--text); text-align: center; }
@@ -750,6 +756,24 @@
         <li><b>Примеры и озвучка</b> добавляют контекст и правильное произношение.</li>
         <li><b>Цель дня и стрик</b> помогают заниматься регулярно — это важнее, чем «много за раз».</li>
       </ul>
+    </div>
+
+    <div class="info-card">
+      <h3>🤖 Разбор ошибок через ИИ</h3>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.5">
+        Необязательно. Без этих настроек приложение работает как обычно — просто без живых объяснений.
+        Данные хранятся только на этом устройстве и <b>не попадают в резервную копию</b>.
+      </p>
+      <div class="add-form" style="flex-direction:column;align-items:stretch">
+        <input id="apiUrl" placeholder="https://api.wordnaut.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <input id="apiToken" type="password" placeholder="токен доступа" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </div>
+      <div class="modal-actions" style="margin-top:12px">
+        <button class="btn-ghost" id="apiTest">Проверить связь</button>
+        <button class="btn-primary" id="apiSave">Сохранить</button>
+        <button class="btn-ghost" id="apiClear">Отключить</button>
+      </div>
+      <span class="import-status" id="apiStatus" style="display:block;margin-top:10px"></span>
     </div>
 
     <div class="info-card">
@@ -1210,15 +1234,86 @@ function explainMistake(given, card) {
   } else {
     parts.push('<div>Это другое слово из твоей колоды.</div>');
   }
-  return `<div class="mistake">${parts.join('')}</div>`;
+  return parts.join('');
 }
 
+// Локальные уровни рисуются сразу, ответ сервера дописывается снизу когда придёт
 function showMistake(host, given, card) {
-  const html = explainMistake(given, card);
-  if (!html) return;
+  const local = explainMistake(given, card);
+  const cfg = apiConfig();
+  if (!local && !cfg) return null;
+
+  const box = document.createElement('div');
+  box.className = 'mistake';
+  box.innerHTML = local;
+  host.appendChild(box);
+  if (cfg) requestAi(box, given, card);
+  return box;
+}
+
+//============ Разбор через сервер ============
+const API_STORE = 'english-words-api';   // отдельно от data, чтобы токен не попал в экспорт прогресса
+const AI_STORE = 'english-words-ai';
+const AI_CACHE_MAX = 500;
+
+function apiConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(API_STORE) || 'null');
+    return c && c.url && c.token ? c : null;
+  } catch (e) { return null; }
+}
+function aiCache() {
+  try { return JSON.parse(localStorage.getItem(AI_STORE) || '{}'); } catch (e) { return {}; }
+}
+function aiRemember(key, text) {
+  const c = aiCache();
+  const keys = Object.keys(c);
+  if (keys.length >= AI_CACHE_MAX) delete c[keys[0]];
+  c[key] = text;
+  try { localStorage.setItem(AI_STORE, JSON.stringify(c)); } catch (e) { /* переполнение — не критично */ }
+}
+
+let aiAbort = null;
+function appendAi(box, text) {
   const div = document.createElement('div');
-  div.innerHTML = html;
-  host.appendChild(div.firstChild);
+  div.className = 'mistake-ai';
+  div.textContent = text;
+  box.appendChild(div);
+}
+
+async function requestAi(box, given, card) {
+  const wrong = normalize(given), right = normalize(card.en);
+  const ok = s => /^[a-z][a-z' -]{0,39}$/.test(s);
+  if (!ok(wrong) || !ok(right) || wrong === right) return;
+
+  const key = [wrong, right].sort().join('|');
+  const cached = aiCache()[key];
+  if (cached) return appendAi(box, cached);
+  if (!navigator.onLine) return;
+
+  const cfg = apiConfig();
+  const note = document.createElement('div');
+  note.className = 'mistake-ai pending';
+  note.textContent = 'Разбираю…';
+  box.appendChild(note);
+
+  aiAbort = new AbortController();
+  const timer = setTimeout(() => aiAbort && aiAbort.abort(), 25000);
+  try {
+    const res = await fetch(cfg.url.replace(/\/+$/, '') + '/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.token },
+      body: JSON.stringify({ wrong, right }),
+      signal: aiAbort.signal
+    });
+    const body = await res.json();
+    note.remove();
+    if (res.ok && body.text) { aiRemember(key, body.text); appendAi(box, body.text); }
+  } catch (e) {
+    note.remove(); // сеть, таймаут или переход к следующей карточке — молча
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 //============ Отображение карточки ============
@@ -1228,6 +1323,7 @@ let aheadMode = false;
 let overLimit = false; // тренировка сверх дневного лимита новых слов
 
 function nextCard() {
+  if (aiAbort) { aiAbort.abort(); aiAbort = null; }
   current = pickCard();
   aheadMode = overLimit;
   currentMode = current ? pickMode(current) : null;
@@ -1310,10 +1406,9 @@ function renderChoice(dir) {
         const givenEn = askEn
           ? (data.cards.find(c => c.ru === btn.dataset.v) || {}).en
           : btn.dataset.v;
-        const html = givenEn ? explainMistake(givenEn, current) : '';
-        if (html) {
-          const area = document.getElementById('cardArea');
-          area.insertAdjacentHTML('beforeend', html);
+        const area = document.getElementById('cardArea');
+        const box = givenEn ? showMistake(area, givenEn, current) : null;
+        if (box) {
           const next = document.createElement('button');
           next.className = 'btn-primary';
           next.style.cssText = 'width:100%;margin-top:12px';
@@ -1738,6 +1833,7 @@ function renderStats() {
   document.getElementById('newPerDayInput').value = data.newPerDay;
   document.getElementById('leechInput').value = data.leechThreshold;
   renderLeeches();
+  renderApiSettings();
   updatePlanHint();
 }
 
@@ -1765,6 +1861,47 @@ document.getElementById('goalInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
   if (v >= 5) { data.dailyGoal = v; save(data); updateProgress(); }
 });
+//============ Настройки разбора через ИИ ============
+function renderApiSettings() {
+  const cfg = apiConfig();
+  document.getElementById('apiUrl').value = cfg ? cfg.url : '';
+  document.getElementById('apiToken').value = cfg ? cfg.token : '';
+  const cached = Object.keys(aiCache()).length;
+  document.getElementById('apiStatus').textContent = cfg
+    ? `Подключено · в кэше ${cached} объяснений`
+    : 'Не подключено';
+}
+function apiStatus(text) { document.getElementById('apiStatus').textContent = text; }
+
+document.getElementById('apiSave').onclick = () => {
+  const url = document.getElementById('apiUrl').value.trim().replace(/\/+$/, '');
+  const token = document.getElementById('apiToken').value.trim();
+  if (!/^https:\/\//.test(url)) return apiStatus('Адрес должен начинаться с https://');
+  if (!token) return apiStatus('Введи токен');
+  localStorage.setItem(API_STORE, JSON.stringify({ url, token }));
+  apiStatus('Сохранено');
+};
+document.getElementById('apiClear').onclick = () => {
+  localStorage.removeItem(API_STORE);
+  renderApiSettings();
+  apiStatus('Отключено — приложение работает офлайн, как раньше');
+};
+document.getElementById('apiTest').onclick = async () => {
+  const url = document.getElementById('apiUrl').value.trim().replace(/\/+$/, '');
+  const token = document.getElementById('apiToken').value.trim();
+  if (!url || !token) return apiStatus('Заполни оба поля');
+  apiStatus('Проверяю…');
+  try {
+    const res = await fetch(url + '/stats', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (res.status === 401) return apiStatus('✗ Токен не подошёл');
+    if (!res.ok) return apiStatus('✗ Сервер ответил ' + res.status);
+    const s = await res.json();
+    apiStatus(`✓ Связь есть · сегодня ${s.usedToday}/${s.dailyLimit} · потрачено $${s.spentUsd} из $${s.capUsd}`);
+  } catch (e) {
+    apiStatus('✗ Не удалось подключиться — проверь адрес и интернет');
+  }
+};
+
 document.getElementById('leechInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
   if (v >= 2) { data.leechThreshold = v; save(data); renderLeeches(); }
