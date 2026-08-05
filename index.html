@@ -4,13 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="robots" content="noindex, nofollow" />
-<title>English Words</title>
+<title>Wordnaut</title>
 <link rel="manifest" href="./manifest.webmanifest" />
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-<meta name="theme-color" content="#0a0e1a" />
+<meta name="theme-color" content="#131210" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="English" />
+<meta name="apple-mobile-web-app-title" content="Wordnaut" />
 <style>
   /* ===== Издательская тема: тёплый нейтральный, без декоративного цвета ===== */
   :root {
@@ -428,7 +428,7 @@
 </defs></svg>
 <header>
   <span class="logo"><svg class="ico"><use href="#i-book"/></svg></span>
-  <h1>English Words</h1>
+  <h1>Wordnaut</h1>
   <span class="streak" id="streakBadge"></span>
   <nav>
     <button data-view="study" class="active">Учить</button>
@@ -1753,7 +1753,7 @@ document.getElementById('exportBtn').onclick = () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   const d = new Date().toISOString().slice(0, 10);
-  a.download = `english-words-backup-${d}.json`;
+  a.download = `wordnaut-backup-${d}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
   const s = document.getElementById('restoreStatus');
@@ -1806,6 +1806,9 @@ function shuffle(a) {
 nextCard();
 
 // Офлайн-режим на телефоне. В оболочке на маке он не нужен и только мешал бы обновлениям.
+// Просим браузер не вытеснять наши данные при нехватке места — прогресс хранится только здесь
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
 if ('serviceWorker' in navigator && location.protocol.startsWith('http') && location.hostname !== '127.0.0.1') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }

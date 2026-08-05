@@ -1,4 +1,4 @@
-const CACHE = 'english-words-v7';
+const CACHE = 'wordnaut-v8';
 const ASSETS = [
   './',
   './index.html',
