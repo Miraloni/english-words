@@ -366,6 +366,14 @@
     color: var(--text); font-size: 14px;
   }
   .mistake-ai.pending { color: var(--muted-2); font-style: italic; }
+  .mistake-add {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 4px; padding-top: 10px;
+    border-top: 1px dashed rgba(148,163,184,0.35);
+    font-size: 14px; color: var(--muted);
+  }
+  .mistake-add b { color: var(--text-strong); }
+  .mistake-add button { margin-left: auto; padding: 7px 14px; font-size: 13px; }
 
   .listen-big { position: static; font-size: 38px; width: 84px; height: 84px; margin: 4px 0; }
   .cloze { font-size: 19px; line-height: 1.6; color: var(--text); text-align: center; }
@@ -1273,6 +1281,31 @@ function aiRemember(key, text) {
   try { localStorage.setItem(AI_STORE, JSON.stringify(c)); } catch (e) { /* переполнение — не критично */ }
 }
 
+// Введённое слово тоже стоит выучить: раз оно подставилось, связь с русским значением шаткая
+function offerNewCard(box, word) {
+  if (!word || word.real !== true || !word.ru) return;
+  const en = String(word.en || '').trim();
+  const known = () => data.cards.some(c => normalize(c.en) === normalize(en));
+  if (!en || known()) return;
+
+  const row = document.createElement('div');
+  row.className = 'mistake-add';
+  const label = document.createElement('span');
+  label.innerHTML = `<b>${esc(en)}</b> — ${esc(word.ru)}`;
+  const btn = document.createElement('button');
+  btn.className = 'btn-ghost';
+  btn.textContent = '+ В колоду';
+  btn.onclick = () => {
+    if (known()) { row.textContent = 'Уже в колоде'; return; }
+    data.cards.push(newCard(en, word.ru, word.example || ''));
+    save(data);
+    row.textContent = '✓ ' + en + ' добавлено в колоду';
+  };
+  row.appendChild(label);
+  row.appendChild(btn);
+  box.appendChild(row);
+}
+
 let aiAbort = null;
 function appendAi(box, text) {
   const div = document.createElement('div');
@@ -1288,7 +1321,13 @@ async function requestAi(box, given, card) {
 
   const key = [wrong, right].sort().join('|');
   const cached = aiCache()[key];
-  if (cached) return appendAi(box, cached);
+  if (cached) {
+    const obj = typeof cached === 'string' ? { text: cached } : cached;
+    appendAi(box, obj.text);
+    // данные о слове верны только если в этот раз введено то же самое слово
+    if (obj.word && obj.word.en === wrong) offerNewCard(box, obj.word);
+    return;
+  }
   if (!navigator.onLine) return;
 
   const cfg = apiConfig();
@@ -1308,7 +1347,11 @@ async function requestAi(box, given, card) {
     });
     const body = await res.json();
     note.remove();
-    if (res.ok && body.text) { aiRemember(key, body.text); appendAi(box, body.text); }
+    if (res.ok && body.text) {
+      aiRemember(key, { text: body.text, word: body.word || null });
+      appendAi(box, body.text);
+      offerNewCard(box, body.word);
+    }
   } catch (e) {
     note.remove(); // сеть, таймаут или переход к следующей карточке — молча
   } finally {
