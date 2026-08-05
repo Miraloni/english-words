@@ -1518,11 +1518,20 @@ function mountRescueImage(host, base, hostEl) {
       const src = await loadRescueImage(host, base);
       src ? show(src) : offer();
     } catch (e) {
+      // сервер мог дорисовать уже после того, как мы перестали ждать
+      await new Promise(r => setTimeout(r, 4000));
+      const late = await loadRescueImage(host, base);
+      if (late) return show(late);
       box.innerHTML = '';
       const err = document.createElement('div');
       err.className = 'rescue-wait';
       err.textContent = 'Не получилось нарисовать';
       box.appendChild(err);
+      const retry = document.createElement('button');
+      retry.className = 'btn-ghost rescue-redraw';
+      retry.textContent = 'Попробовать снова';
+      retry.onclick = () => generate(false);
+      box.appendChild(retry);
     }
   }
 
