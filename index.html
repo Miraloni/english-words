@@ -1306,7 +1306,26 @@ function offerNewCard(box, word) {
   box.appendChild(row);
 }
 
+// В оболочке на маке запрос выполняет основной процесс — до нашего сервера
+// доходит только он. В браузере и на телефоне работает обычный fetch.
+async function apiCall(cfg, route, body) {
+  if (window.ewApi) {
+    const r = await window.ewApi.request({ url: cfg.url, token: cfg.token, path: route, body });
+    if (r.error) throw new Error(r.error);
+    return { ok: r.status >= 200 && r.status < 300, status: r.status, data: r.data };
+  }
+  const res = await fetch(cfg.url + route, {
+    method: body ? 'POST' : 'GET',
+    headers: Object.assign({ 'Authorization': 'Bearer ' + cfg.token },
+      body ? { 'Content-Type': 'application/json' } : {}),
+    body: body ? JSON.stringify(body) : undefined,
+    signal: aiAbort ? aiAbort.signal : undefined
+  });
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => null) };
+}
+
 let aiAbort = null;
+let cardGen = 0;   // ответ, пришедший после перехода к следующей карточке, отбрасываем
 function appendAi(box, text) {
   const div = document.createElement('div');
   div.className = 'mistake-ai';
@@ -1337,15 +1356,12 @@ async function requestAi(box, given, card) {
   box.appendChild(note);
 
   aiAbort = new AbortController();
-  const timer = setTimeout(() => aiAbort && aiAbort.abort(), 25000);
+  const gen = cardGen;
+  const timer = setTimeout(() => aiAbort && aiAbort.abort(), 30000);
   try {
-    const res = await fetch(cfg.url.replace(/\/+$/, '') + '/explain', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.token },
-      body: JSON.stringify({ wrong, right }),
-      signal: aiAbort.signal
-    });
-    const body = await res.json();
+    const res = await apiCall({ url: cfg.url.replace(/\/+$/, ''), token: cfg.token }, '/explain', { wrong, right });
+    if (gen !== cardGen) return note.remove();
+    const body = res.data || {};
     note.remove();
     if (res.ok && body.text) {
       aiRemember(key, { text: body.text, word: body.word || null });
@@ -1366,6 +1382,7 @@ let aheadMode = false;
 let overLimit = false; // тренировка сверх дневного лимита новых слов
 
 function nextCard() {
+  cardGen++;
   if (aiAbort) { aiAbort.abort(); aiAbort = null; }
   current = pickCard();
   aheadMode = overLimit;
@@ -1935,10 +1952,10 @@ document.getElementById('apiTest').onclick = async () => {
   if (!url || !token) return apiStatus('Заполни оба поля');
   apiStatus('Проверяю…');
   try {
-    const res = await fetch(url + '/stats', { headers: { 'Authorization': 'Bearer ' + token } });
+    const res = await apiCall({ url, token }, '/stats');
     if (res.status === 401) return apiStatus('✗ Токен не подошёл');
     if (!res.ok) return apiStatus('✗ Сервер ответил ' + res.status);
-    const s = await res.json();
+    const s = res.data;
     apiStatus(`✓ Связь есть · сегодня ${s.usedToday}/${s.dailyLimit} · потрачено $${s.spentUsd} из $${s.capUsd}`);
   } catch (e) {
     apiStatus('✗ Не удалось подключиться — проверь адрес и интернет');
@@ -2019,8 +2036,8 @@ function shuffle(a) {
 // Старт
 nextCard();
 
-// Офлайн-режим на телефоне. В Electron (file://) service worker недоступен — пропускаем.
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+// Офлайн-режим на телефоне. В оболочке на маке он не нужен и только мешал бы обновлениям.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http') && location.hostname !== '127.0.0.1') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
