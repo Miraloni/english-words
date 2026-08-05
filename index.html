@@ -246,6 +246,15 @@
     background: var(--surface); border: 1px solid var(--line);
   }
 
+  .rescue-img-box { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+  .rescue-img {
+    width: 100%; max-width: 340px; border-radius: var(--r);
+    border: 1px solid var(--line); display: block;
+    animation: viewIn 0.4s var(--ease);
+  }
+  .rescue-redraw { font-size: 13px; padding: 7px 14px; }
+  .rescue-wait { font-size: 13.5px; color: var(--text-faint); font-style: italic; }
+
   .mistake {
     width: 100%; text-align: left; margin-top: 4px;
     padding-left: 16px; border-left: 2px solid var(--line-strong);
@@ -1427,6 +1436,72 @@ function checkTyped(value) {
   }
 }
 
+
+// Картинка-подсказка. В оболочке её тянет основной процесс, в браузере — обычный <img>.
+async function loadRescueImage(host, base) {
+  if (window.ewApi) {
+    const r = await window.ewApi.image({ url: host, file: base + '.webp' });
+    return r && r.dataUrl ? r.dataUrl : null;
+  }
+  const url = host + '/img/' + base + '.webp';
+  return new Promise(resolve => {
+    const probe = new Image();
+    probe.onload = () => resolve(url);
+    probe.onerror = () => resolve(null);
+    probe.src = url;
+  });
+}
+
+function mountRescueImage(host, base, hostEl) {
+  const box = document.createElement('div');
+  box.className = 'rescue-img-box';
+  hostEl.appendChild(box);
+
+  const show = src => {
+    box.innerHTML = '';
+    const img = document.createElement('img');
+    img.className = 'rescue-img';
+    img.alt = '';
+    img.src = src;
+    box.appendChild(img);
+    const again = document.createElement('button');
+    again.className = 'btn-ghost rescue-redraw';
+    again.textContent = 'Не то, перерисовать';
+    again.onclick = () => generate(true);
+    box.appendChild(again);
+  };
+
+  const offer = () => {
+    box.innerHTML = '';
+    const b = document.createElement('button');
+    b.className = 'btn-ghost';
+    b.textContent = 'Нарисовать подсказку';
+    b.onclick = () => generate(false);
+    box.appendChild(b);
+  };
+
+  async function generate(regenerate) {
+    const cfg = apiConfig();
+    if (!cfg) return;
+    box.innerHTML = '<div class="rescue-wait">Рисую, это займёт около полуминуты…</div>';
+    try {
+      const r = await apiCall({ url: host, token: cfg.token }, '/image',
+        { word: base, meaning: current.ru, hint: MNEMONICS[base] || '', regenerate: !!regenerate });
+      if (!r.ok) throw new Error((r.data && r.data.error) || r.status);
+      const src = await loadRescueImage(host, base);
+      src ? show(src) : offer();
+    } catch (e) {
+      box.innerHTML = '';
+      const err = document.createElement('div');
+      err.className = 'rescue-wait';
+      err.textContent = 'Не получилось нарисовать';
+      box.appendChild(err);
+    }
+  }
+
+  loadRescueImage(host, base).then(src => src ? show(src) : offer());
+}
+
 // --- Спасательный экран для слов, которые никак не запоминаются ---
 function renderRescue() {
   const base = normalize(current.en);
@@ -1440,6 +1515,7 @@ function renderRescue() {
       <div class="translation">${esc(current.ru)}</div>
       <div class="rescue-count">провалено раз: ${current.lapses}</div>
       ${hint ? `<div class="rescue-hint">${esc(hint)}</div>` : ''}
+      <div id="imgHost" style="width:100%"></div>
       <div id="exHost" style="width:100%"></div>
     </div>
     <button class="btn-primary" id="gotItBtn" style="align-self:flex-end">Понятно, дальше</button>`;
@@ -1447,6 +1523,9 @@ function renderRescue() {
   document.getElementById('speakBtn').onclick = () => speak(current.en);
   speak(current.en);
   if (current.example) showExample(document.getElementById('exHost'), true);
+
+  const cfg = apiConfig();
+  if (cfg) mountRescueImage(cfg.url.replace(/\/+$/, ''), base, document.getElementById('imgHost'));
 
   document.getElementById('gotItBtn').onclick = () => {
     current.rescuedAt = current.lapses;
