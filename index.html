@@ -234,6 +234,18 @@
   .letter[disabled] { opacity: 0.2; cursor: default; }
 
   /* ===== Разбор ошибки ===== */
+  .rescue .word { color: var(--text); }
+  .rescue-count {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--no); font-weight: 600;
+  }
+  .rescue-hint {
+    font-family: var(--serif); font-size: 19px; line-height: 1.6;
+    color: var(--text); text-align: left; width: 100%;
+    padding: 18px 20px; border-radius: var(--r);
+    background: var(--surface); border: 1px solid var(--line);
+  }
+
   .mistake {
     width: 100%; text-align: left; margin-top: 4px;
     padding-left: 16px; border-left: 2px solid var(--line-strong);
@@ -771,6 +783,110 @@ const CONFUSIONS = {
   'keep|store': ['keep — держать у себя; store — хранить на складе, запасать', 'Keep it safe. — Храни это в надёжном месте.', 'store food for winter — запасать еду на зиму'],
 };
 
+// Мнемоники для слов, которые чаще всего западают: связка через созвучие с русским
+// или подсказка о немых буквах. Показываются в спасательном режиме.
+const MNEMONICS = {
+  'advice': 'АД-ВАЙС: совет, как не попасть в ад.',
+  'afraid': 'А, ФРЕЙД! Он-то и объяснял, чего мы боимся.',
+  'agree': 'А-ГРЕЙ: согласен, давай греться вместе.',
+  'answer': '«АН, СЭР!» — вот и весь ответ.',
+  'arrive': 'Приехал прямо на РЕЙВ.',
+  'because': 'Би-КОЗА: почему? Потому что коза.',
+  'believe': 'БИ-ЛИВ: чтобы верить, надо жить.',
+  'bottle': 'БОТЛ — бутылка, которую не открыть без штопора.',
+  'bread': 'Звучит как БРЕД, но это всего лишь хлеб.',
+  'break': 'БРЕЙК — перерыв, все разошлись.',
+  'busy': 'БИЗнесмен всегда занят.',
+  'buy': 'Покупаешь — и деньгам БАЙ-бай.',
+  'cheap': 'Дешёвый ЧИП за копейки.',
+  'choose': 'ЧУЕШЬ, что выбрать?',
+  'clean': 'КЛИН вышибает грязь.',
+  'clock': 'КЛОК времени, который тикает.',
+  'cost': 'Сколько стоит? Да целую КОСТЬ.',
+  'cut': 'КАТ — палач, который режет.',
+  'daughter': 'ДОТА, в которую играет дочь. Буквы gh молчат.',
+  'decide': 'ДИ-САЙД: решил, на какую сторону встать.',
+  'describe': 'ДИС-СКРАЙБ: писарь описывает всё подряд.',
+  'desk': 'ДОСКА стола — вот тебе и desk.',
+  'dirty': 'ДЁРН из-под ног — грязный.',
+  'early': 'ЁЛЫ-палы, как рано вставать.',
+  'enough': 'Звучит как «и НАФИГ». Хватит, достаточно — и нафиг больше.',
+  'expensive': 'Внутри сидит ПЕНСИЯ: на пенсию это слишком дорого.',
+  'explain': 'ЭКС-ПЛАН: объясняешь по бывшему плану.',
+  'eye': 'АЙ! — попало в глаз.',
+  'far': 'ФАРы светят далеко — вот насколько far.',
+  'fast': 'ФАСТфуд — потому что быстро.',
+  'floor': 'ФЛОРа растёт прямо на полу.',
+  'follow': 'ФОЛ — и все побежали следом за судьёй.',
+  'forget': 'ФО-ГЕТ: забыл, за чем шёл.',
+  'free': 'Картошка ФРИ сегодня бесплатно.',
+  'grow': 'ГРОМ гремит — и всё растёт.',
+  'guess': 'ГУСЬ угадал, куда ты спрятала хлеб.',
+  'half': 'ХАВАть будем половину.',
+  'hard': 'ХАРД-диск — твёрдый и тяжёлый, как и всё hard.',
+  'hate': 'Хейт в комментариях — это и есть hate.',
+  'hear': 'ХИ-ХИ слышно за стеной.',
+  'hope': 'ХОП — и появилась надежда.',
+  'horse': 'ХОРОШ конь!',
+  'hour': 'Час пик — и все АУ, где все.',
+  'hungry': 'ХАНГРИ — от голода урчит, как «хрр».',
+  'island': 'Буква s на острове утонула: читается «айленд».',
+  'keep': 'КИПа бумаг, которую ты хранишь и не выбрасываешь.',
+  'kitchen': 'КИТ застрял в кухне и не пролезает в дверь.',
+  'know': 'Буква k молчит — знающие люди не кричат.',
+  'laugh': 'ЛАФА — так смешно, что не остановиться. Буквы gh молчат.',
+  'letter': 'ЛЕТО, а от тебя ни одного письма.',
+  'listen': 'Буква t молчит, когда слушаешь.',
+  'lose': 'ЛУЗЕР — потому что вечно всё теряет.',
+  'meet': 'Встреча — МИТинг.',
+  'minute': 'МИНУТа — почти одинаково звучит.',
+  'mistake': 'Мистер ТЕЙК взял не ту коробку — вышла ошибка.',
+  'money': 'МАНИ-мани, всё как в песне.',
+  'mountain': 'МАУНТ, на который забираются.',
+  'often': 'ОФис — туда часто ходят. Буква t часто немая.',
+  'pay': 'ПЕЙ, но сначала заплати.',
+  'place': 'ПЛАЦ — место, где всё строятся.',
+  'poor': 'ПУСто в карманах — вот и бедный.',
+  'prepare': 'ПРИ-ПАРЕ: готовим на пару заранее.',
+  'question': 'КВЕСТ начинается с вопроса.',
+  'quiet': 'Тихий quiet и «довольно» quite различаются одной буквой — не путай.',
+  'ready': 'РАДИ этого я и готовился.',
+  'river': 'Река РЕВЁТ на порогах.',
+  'run': 'РАНец скачет за спиной, когда бежишь.',
+  'sad': 'В САДу сидит грустный человек.',
+  'school': 'Буква h спряталась в школе: читается «скул».',
+  'sell': 'СЕЛ за прилавок и стал продавать.',
+  'short': 'ШОРТы — потому что короткие.',
+  'sit': 'СИТец на стуле — садись.',
+  'sleep': 'Глаза СЛИПаются — пора спать.',
+  'small': 'СМОЛка — маленькая капля.',
+  'stay': 'СТОЙ, останься ещё немного.',
+  'still': 'СТИЛЬ не меняется — всё ещё тот же.',
+  'street': 'СТРИТрейсеры гоняют по улице.',
+  'strong': 'СТРОГий значит сильный.',
+  'study': 'СТАДИя обучения — учиться поэтапно.',
+  'swim': 'С ВАМИ плыть веселее.',
+  'talk': 'Буква l молчит, пока ты говоришь: «ток».',
+  'tired': 'ТАЙГА вымотала — устал.',
+  'tree': 'ТРИ дерева стоят рядом — tree и есть «три» наоборот.',
+  'try': 'ТРОЕ пробуют — вдруг получится.',
+  'turn': 'ТЁРН — резкий поворот.',
+  'understand': 'Стоять ПОД (under) вопросом достаточно долго, чтобы понять.',
+  'wait': 'ВЕЙТ, не уходи.',
+  'walk': 'Та же немая l: идёшь и молчишь — «уок».',
+  'want': 'ВОН ТО хочу! — показываешь пальцем и говоришь want.',
+  'warm': 'ВОРсистый свитер — тёплый.',
+  'watch': 'ВОТ ЧЕГО я смотрю.',
+  'weather': 'ВЕТЕР — первое, что спрашивают про погоду.',
+  'wonderful': 'ВАНДЕРвафля — чудесная штука.',
+  'word': 'Ворд — программа, в которой одни слова.',
+  'work': 'УОРК — от него и «воркаут».',
+  'world': 'ВОРЛД оф варкрафт — целый мир.',
+  'write': 'Буква w впереди немая — рука пишет, а не говорит.',
+  'wrong': 'Та же немая w: ошибся — молчи.',
+  'young': 'ЯНки ещё молод.',
+};
+
 function newCard(en, ru, example) {
   return {
     id: 'c' + Math.random().toString(36).slice(2, 9),
@@ -780,6 +896,7 @@ function newCard(en, ru, example) {
     introduced: false,
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
     lapses: 0,             // сколько раз слово провалено — в отличие от reps не обнуляется
+    rescuedAt: null,       // при скольких провалах последний раз показывали спасательный экран
     lastMode: null
   };
 }
@@ -811,6 +928,7 @@ function load() {
         if (c.order === undefined) c.order = Math.random();
         if (c.lapses === undefined) c.lapses = 0;
         if (c.lastMode === undefined) c.lastMode = null;
+        if (c.rescuedAt === undefined) c.rescuedAt = null;
       });
       return d;
     } catch (e) {}
@@ -907,7 +1025,18 @@ function modeUsable(mode, card) {
   return true;
 }
 
+// Слово провалено столько раз, что пора не спрашивать, а объяснять.
+// Повторно спасаем только если провалов стало заметно больше.
+function needsRescue(card) {
+  const n = card.lapses || 0;
+  if (n < data.leechThreshold) return false;
+  return card.rescuedAt === null || n - card.rescuedAt >= 3;
+}
+
+let rescueDone = false;   // спасение показывается один раз перед заданием
+
 function pickMode(card) {
+  if (!rescueDone && needsRescue(card)) return 'rescue';
   const pool = modesFor(card).filter(m => modeUsable(m, card));
   if (!pool.length) return 'type';
   // подряд один и тот же режим не даём — иначе разнообразие не чувствуется
@@ -1147,11 +1276,12 @@ let overLimit = false; // тренировка сверх дневного ли�
 
 function nextCard() {
   cardGen++;
+  rescueDone = false;
   if (aiAbort) { aiAbort.abort(); aiAbort = null; }
   current = pickCard();
   aheadMode = overLimit;
   currentMode = current ? pickMode(current) : null;
-  if (current) current.lastMode = currentMode;
+  if (current && currentMode !== 'rescue') current.lastMode = currentMode;
   renderCard();
   updateProgress();
 }
@@ -1175,6 +1305,7 @@ function renderCard() {
     if (ahead) ahead.onclick = () => { overLimit = true; nextCard(); };
     return;
   }
+  if (currentMode === 'rescue') return renderRescue();
   if (currentMode === 'choice') return renderChoice('en2ru');
   if (currentMode === 'choiceEn') return renderChoice('ru2en');
   if (currentMode === 'type') return renderType();
@@ -1294,6 +1425,37 @@ function checkTyped(value) {
     document.getElementById('contBtn').onclick = () => { grade(current, 'again'); nextCard(); };
     document.getElementById('iWasRight').onclick = () => { grade(current, 'good'); nextCard(); };
   }
+}
+
+// --- Спасательный экран для слов, которые никак не запоминаются ---
+function renderRescue() {
+  const base = normalize(current.en);
+  const hint = MNEMONICS[base];
+  const area = document.getElementById('cardArea');
+  area.innerHTML = `
+    <div class="card rescue">
+      <span class="mode-tag">Это слово упорно не даётся</span>
+      <div class="word">${esc(current.en)}</div>
+      <button class="speak-btn" id="speakBtn" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
+      <div class="translation">${esc(current.ru)}</div>
+      <div class="rescue-count">провалено раз: ${current.lapses}</div>
+      ${hint ? `<div class="rescue-hint">${esc(hint)}</div>` : ''}
+      <div id="exHost" style="width:100%"></div>
+    </div>
+    <button class="btn-primary" id="gotItBtn" style="align-self:flex-end">Понятно, дальше</button>`;
+
+  document.getElementById('speakBtn').onclick = () => speak(current.en);
+  speak(current.en);
+  if (current.example) showExample(document.getElementById('exHost'), true);
+
+  document.getElementById('gotItBtn').onclick = () => {
+    current.rescuedAt = current.lapses;
+    save(data);
+    rescueDone = true;
+    currentMode = pickMode(current);
+    current.lastMode = currentMode;
+    renderCard();
+  };
 }
 
 // --- Режим: на слух ---
