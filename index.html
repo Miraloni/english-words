@@ -239,6 +239,7 @@
     font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--no); font-weight: 600;
   }
+  .rescue-hint.pending { color: var(--text-faint); font-style: italic; }
   .rescue-hint {
     font-family: var(--serif); font-size: 19px; line-height: 1.6;
     color: var(--text); text-align: left; width: 100%;
@@ -1437,13 +1438,18 @@ function checkTyped(value) {
 }
 
 
+// Имя файла картинки строится так же, как на сервере: «get up» -> «get-up»
+function imgSlug(word) {
+  return word.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 // Картинка-подсказка. В оболочке её тянет основной процесс, в браузере — обычный <img>.
 async function loadRescueImage(host, base) {
   if (window.ewApi) {
-    const r = await window.ewApi.image({ url: host, file: base + '.webp' });
+    const r = await window.ewApi.image({ url: host, file: imgSlug(base) + '.webp' });
     return r && r.dataUrl ? r.dataUrl : null;
   }
-  const url = host + '/img/' + base + '.webp';
+  const url = host + '/img/' + imgSlug(base) + '.webp';
   return new Promise(resolve => {
     const probe = new Image();
     probe.onload = () => resolve(url);
@@ -1452,6 +1458,27 @@ async function loadRescueImage(host, base) {
   });
 }
 
+// Для слов из чужого словаря мнемоники в наборе нет — просим её у сервера
+async function fetchMnemonic(host, token, base, meaning) {
+  const card = current;
+  const box = document.querySelector('.rescue .word');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'rescue-hint pending';
+  el.textContent = 'Придумываю подсказку…';
+  box.parentNode.insertBefore(el, document.getElementById('imgHost'));
+  try {
+    const r = await apiCall({ url: host, token }, '/mnemonic', { word: base, meaning });
+    if (card !== current) return el.remove();
+    if (r.ok && r.data && r.data.text) {
+      el.className = 'rescue-hint';
+      el.textContent = r.data.text;
+      rescueHint = r.data.text;
+    } else el.remove();
+  } catch (e) { el.remove(); }
+}
+
+let rescueHint = '';
 function mountRescueImage(host, base, hostEl) {
   const box = document.createElement('div');
   box.className = 'rescue-img-box';
@@ -1486,7 +1513,7 @@ function mountRescueImage(host, base, hostEl) {
     box.innerHTML = '<div class="rescue-wait">Рисую, это займёт около полуминуты…</div>';
     try {
       const r = await apiCall({ url: host, token: cfg.token }, '/image',
-        { word: base, meaning: current.ru, hint: MNEMONICS[base] || '', regenerate: !!regenerate });
+        { word: base, meaning: current.ru, hint: MNEMONICS[base] || rescueHint || '', regenerate: !!regenerate });
       if (!r.ok) throw new Error((r.data && r.data.error) || r.status);
       const src = await loadRescueImage(host, base);
       src ? show(src) : offer();
@@ -1506,6 +1533,7 @@ function mountRescueImage(host, base, hostEl) {
 function renderRescue() {
   const base = normalize(current.en);
   const hint = MNEMONICS[base];
+  rescueHint = '';
   const area = document.getElementById('cardArea');
   area.innerHTML = `
     <div class="card rescue">
@@ -1525,7 +1553,11 @@ function renderRescue() {
   if (current.example) showExample(document.getElementById('exHost'), true);
 
   const cfg = apiConfig();
-  if (cfg) mountRescueImage(cfg.url.replace(/\/+$/, ''), base, document.getElementById('imgHost'));
+  if (cfg) {
+    const host = cfg.url.replace(/\/+$/, '');
+    if (!hint) fetchMnemonic(host, cfg.token, base, current.ru);
+    mountRescueImage(host, base, document.getElementById('imgHost'));
+  }
 
   document.getElementById('gotItBtn').onclick = () => {
     current.rescuedAt = current.lapses;
