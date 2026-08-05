@@ -1062,6 +1062,7 @@ function grade(card, quality) {
 
   if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
+    if (card.lapses === data.leechThreshold - 1) prepRescue(card);
     card.reps = 0;
     card.ease = Math.max(1.3, card.ease - 0.2);
     card.interval = 0;
@@ -1165,6 +1166,7 @@ function showMistake(host, given, card) {
 //============ Разбор через сервер ============
 const API_STORE = 'english-words-api';   // отдельно от data, чтобы токен не попал в экспорт прогресса
 const AI_STORE = 'english-words-ai';
+const MN_STORE = 'wordnaut-mn';
 const AI_CACHE_MAX = 500;
 
 function apiConfig() {
@@ -1173,6 +1175,15 @@ function apiConfig() {
     return c && c.url && c.token ? c : null;
   } catch (e) { return null; }
 }
+function mnCache() {
+  try { return JSON.parse(localStorage.getItem(MN_STORE) || '{}'); } catch (e) { return {}; }
+}
+function mnRemember(word, text) {
+  const c = mnCache();
+  c[word] = text;
+  try { localStorage.setItem(MN_STORE, JSON.stringify(c)); } catch (e) {}
+}
+
 function aiCache() {
   try { return JSON.parse(localStorage.getItem(AI_STORE) || '{}'); } catch (e) { return {}; }
 }
@@ -1474,6 +1485,7 @@ async function fetchMnemonic(host, token, base, meaning) {
       el.className = 'rescue-hint';
       el.textContent = r.data.text;
       rescueHint = r.data.text;
+      mnRemember(base, r.data.text);
     } else el.remove();
   } catch (e) { el.remove(); }
 }
@@ -1538,11 +1550,32 @@ function mountRescueImage(host, base, hostEl) {
   loadRescueImage(host, base).then(src => src ? show(src) : offer());
 }
 
+
+// За одну ошибку до порога готовим подсказку и картинку в фоне,
+// чтобы спасательный экран открылся мгновенно, а не с ожиданием.
+async function prepRescue(card) {
+  const cfg = apiConfig();
+  if (!cfg || !navigator.onLine) return;
+  const base = normalize(card.en);
+  if (!/^[a-z][a-z' -]{0,39}$/.test(base)) return;
+  const host = cfg.url.replace(/\/+$/, '');
+  const auth = { url: host, token: cfg.token };
+
+  let hint = MNEMONICS[base] || mnCache()[base] || '';
+  try {
+    if (!hint) {
+      const r = await apiCall(auth, '/mnemonic', { word: base, meaning: card.ru });
+      if (r.ok && r.data && r.data.text) { hint = r.data.text; mnRemember(base, hint); }
+    }
+    await apiCall(auth, '/image', { word: base, meaning: card.ru, hint });
+  } catch (e) { /* не получилось — на пятой ошибке попробуем обычным путём */ }
+}
+
 // --- Спасательный экран для слов, которые никак не запоминаются ---
 function renderRescue() {
   const base = normalize(current.en);
-  const hint = MNEMONICS[base];
-  rescueHint = '';
+  const hint = MNEMONICS[base] || mnCache()[base] || '';
+  rescueHint = hint;
   const area = document.getElementById('cardArea');
   area.innerHTML = `
     <div class="card rescue">
