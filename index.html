@@ -1791,18 +1791,32 @@ function imgSlug(word) {
 }
 
 // Картинка-подсказка. В оболочке её тянет основной процесс, в браузере — обычный <img>.
-async function loadRescueImage(host, base) {
+// Грузит конкретный файл. Имя приходит от сервера — сам его больше не складываем:
+// сервер добавляет к имени версию промпта (below.v2.webp), и угадать её нельзя.
+async function loadImageFile(host, file, bust) {
   if (window.ewApi) {
-    const r = await window.ewApi.image({ url: host, file: imgSlug(base) + '.webp' });
+    const r = await window.ewApi.image({ url: host, file });
     return r && r.dataUrl ? r.dataUrl : null;
   }
-  const url = host + '/img/' + imgSlug(base) + '.webp';
+  const url = host + '/img/' + file + (bust ? '?t=' + Date.now() : '');
   return new Promise(resolve => {
     const probe = new Image();
     probe.onload = () => resolve(url);
     probe.onerror = () => resolve(null);
     probe.src = url;
   });
+}
+
+// Проба до всякого запроса: версии мы не знаем, поэтому спрашиваем имя без неё —
+// сервер держит на текущей версии ссылку без версии специально для этого.
+async function loadRescueImage(host, base) {
+  return loadImageFile(host, imgSlug(base) + '.webp');
+}
+
+// Из ответа сервера: { url: '/img/below.v2.webp' } -> 'below.v2.webp'
+function fileFromUrl(u) {
+  const m = /\/img\/([^/?#]+)$/.exec(String(u || ''));
+  return m ? m[1] : null;
 }
 
 // Для слов из чужого словаря мнемоники в наборе нет — просим её у сервера
@@ -1877,7 +1891,9 @@ function mountRescueImage(host, base, hostEl) {
         }
         throw new Error(code || r.status);
       }
-      const src = await loadRescueImage(host, base);
+      // Берём имя из ответа сервера, а не собираем сами
+      const file = fileFromUrl(r.data && r.data.url);
+      const src = file ? await loadImageFile(host, file, regenerate) : await loadRescueImage(host, base);
       src ? show(src) : offer();
     } catch (e) {
       // сервер мог дорисовать уже после того, как мы перестали ждать
