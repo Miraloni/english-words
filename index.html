@@ -105,7 +105,6 @@
     font-size: 14px; font-weight: 500; color: var(--text-faint);
     transition: color 0.15s var(--ease);
   }
-  nav button:hover { color: var(--text-dim); }
   nav button.active { color: var(--text); font-weight: 600; }
 
   .theme-toggle {
@@ -113,8 +112,6 @@
     padding: 6px; margin-left: 4px; display: flex; border-radius: var(--r);
     transition: color 0.15s var(--ease);
   }
-  .theme-toggle:hover { color: var(--text); }
-
   main { flex: 1; overflow-y: auto; padding: 40px 28px 72px; scroll-behavior: smooth; }
 
   .view { display: none; max-width: var(--w); margin: 0 auto; }
@@ -159,7 +156,6 @@
     padding: 8px; display: flex; border-radius: 50%;
     transition: color 0.15s var(--ease);
   }
-  .speak-btn:hover { color: var(--text); }
   .listen-big { padding: 0; }
   .listen-big .ico { width: 44px; height: 44px; stroke-width: 1.2; }
 
@@ -183,7 +179,6 @@
     color: var(--text); font-size: 16.5px; cursor: pointer; text-align: left;
     transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
   }
-  .choice:hover { border-color: var(--line-strong); background: var(--surface); }
   .choice .num {
     font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums;
     min-width: 12px;
@@ -204,11 +199,7 @@
     display: flex; flex-direction: column; align-items: center; gap: 3px;
     transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
   }
-  .rate-buttons button:hover { border-color: var(--line-strong); color: var(--text); }
   .rate-buttons small { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
-  .rate-buttons .btn-again:hover { border-color: var(--no); color: var(--no); }
-  .rate-buttons .btn-easy:hover { border-color: var(--ok); color: var(--ok); }
-
   .example {
     font-family: var(--serif); font-size: 16px; line-height: 1.6;
     color: var(--text-dim); padding-left: 14px; border-left: 1px solid var(--line-strong);
@@ -269,11 +260,8 @@
     transition: border-color 0.15s var(--ease), background 0.15s var(--ease), color 0.15s var(--ease);
   }
   .btn-primary { border: 1px solid var(--text); background: var(--text); color: var(--bg); font-weight: 600; }
-  .btn-primary:hover { opacity: 0.88; }
   .btn-ghost { border: 1px solid var(--line); background: none; color: var(--text-dim); }
-  .btn-ghost:hover { border-color: var(--line-strong); color: var(--text); }
   .danger { border: 1px solid var(--line); background: none; color: var(--text-faint); margin-top: 48px; }
-  .danger:hover { border-color: var(--no); color: var(--no); }
   .btn-row { display: flex; gap: 8px; width: 100%; }
 
   .empty { text-align: center; padding: 60px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -339,14 +327,12 @@
   }
   td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--line); color: var(--text-dim); }
   td:first-child { font-family: var(--serif); font-size: 16px; color: var(--text); }
-  tr:hover td { color: var(--text); }
   .badge { font-size: 11.5px; color: var(--text-faint); }
   .badge.new { color: var(--text-dim); }
   .del {
     background: none; border: 0; cursor: pointer; color: var(--text-faint);
     padding: 4px; display: flex; border-radius: var(--r);
   }
-  .del:hover { color: var(--no); }
   .muted-note { color: var(--text-faint); font-size: 13.5px; }
 
   /* ===== Модальное окно ===== */
@@ -368,7 +354,6 @@
     position: absolute; top: 18px; right: 18px;
     background: none; border: 0; cursor: pointer; color: var(--text-faint); padding: 6px; display: flex;
   }
-  .modal-close:hover { color: var(--text); }
   .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
   .code, pre.code {
     background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r);
@@ -379,6 +364,25 @@
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+
+  /* Safari на айфоне оставляет состояние наведения на последней нажатой кнопке,
+     и подсветка висит до следующего касания. Показываем её только там, где есть мышь. */
+  @media (hover: hover) {
+  nav button:hover { color: var(--text-dim); }
+  .theme-toggle:hover { color: var(--text); }
+  .speak-btn:hover { color: var(--text); }
+  .choice:hover { border-color: var(--line-strong); background: var(--surface); }
+  .rate-buttons button:hover { border-color: var(--line-strong); color: var(--text); }
+  .rate-buttons .btn-again:hover { border-color: var(--no); color: var(--no); }
+  .rate-buttons .btn-easy:hover { border-color: var(--ok); color: var(--ok); }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-ghost:hover { border-color: var(--line-strong); color: var(--text); }
+  .danger:hover { border-color: var(--no); color: var(--no); }
+  tr:hover td { color: var(--text); }
+  .del:hover { color: var(--no); }
+  .modal-close:hover { color: var(--text); }
   }
 
   @media (max-width: 640px) {
@@ -1123,10 +1127,14 @@ function pickCard() {
   if (learning.length) return learning[0];
   // 2) обычные повторения
   if (due.length) return due[0];
-  // 3) новые слова — в пределах дневного лимита и общего потолка слов в работе
+  // 3) новые слова. Дневная норма и потолок слов в работе — жёсткие: сколько
+  // указано в настройках, столько сегодня и вводится. Поменяла число — граница
+  // сдвинулась сразу, потому что сравнение идёт с текущим значением настройки.
+  // «Сверх лимита» эти две границы НЕ обходит: раньше обходил, и за один вечер
+  // при норме 20 вводилось 46 новых слов.
   const fresh = newCards().sort((a, b) => a.order - b.order);
   const room = inWorkCards(data).length < MAX_IN_WORK;
-  if (fresh.length && (overLimit || (data.sessionNew < data.newPerDay && room))) return fresh[0];
+  if (fresh.length && data.sessionNew < data.newPerDay && room) return fresh[0];
   // 3) сверх лимита и новых не осталось — даём ближайшее будущее слово для тренировки
   if (overLimit) {
     const future = data.cards.filter(c => c.due !== null).sort((a, b) => a.due - b.due);
@@ -1168,10 +1176,13 @@ let rescueDone = false;   // спасение показывается один 
 // Распределение режимов по числу предъявлений (seen), а не по reps:
 // reps обнуляется при провале, поэтому по нему слово, которое не даётся,
 // бесконечно возвращалось бы в режим узнавания — прямо против И1.
-const INTRO_MODES = ['choice', 'choiceEn'];  // первые два предъявления: ознакомление
-const CLOZE_SHARE = 0.2;   // доля контекстного ввода среди продуктивных показов
-const LISTEN_FROM = 4;     // раньше этого предъявления на слух не спрашиваем
-const LISTEN_EVERY = 6;    // и дальше — каждый шестой
+// Одно ознакомительное предъявление, дальше только воспроизведение. Второе
+// ознакомление («выбери английское слово») — то же узнавание наоборот, по И1 оно
+// ничего не добавляет, а доля угадывания с ним была 43% против 27%.
+const INTRO_MODES = ['choice'];
+const CLOZE_SHARE = 0.35;  // доля контекстного ввода среди продуктивных показов
+const LISTEN_FROM = 3;     // раньше этого предъявления на слух не спрашиваем
+const LISTEN_EVERY = 5;    // и дальше — каждый пятый
 
 function pickMode(card) {
   if (!rescueDone && needsRescue(card)) return 'rescue';
@@ -1597,16 +1608,17 @@ function nextCard() {
 function renderCard() {
   const area = document.getElementById('cardArea');
   if (!current) {
-    const hasNew = newCards().length > 0;
+    // Новые слова сверх нормы не предлагаем вовсе — «дальше» значит только
+    // повторить наперёд то, что уже в работе.
     const hasFuture = data.cards.some(c => c.due !== null);
-    const canMore = hasNew || hasFuture;
+    const canMore = hasFuture;
     area.innerHTML = `
       <div class="empty">
         <div class="big"><svg class="ico"><use href="#i-done"/></svg></div>
         <p>Дневной план выполнен!</p>
-        <p style="font-size:13px">${hasNew
-          ? 'Можешь учить новые слова сверх лимита — с вариантами и вводом, как обычно.'
-          : 'Новых слов в колоде не осталось. Можешь повторять изученные наперёд.'}</p>
+        <p style="font-size:13px">${canMore
+          ? 'Новые слова на сегодня закончились. Можно повторить наперёд то, что уже в работе.'
+          : 'Ничего не осталось — возвращайся завтра.'}</p>
         ${canMore ? '<button class="btn-primary" id="aheadBtn">Учить дальше</button>' : ''}
       </div>`;
     const ahead = document.getElementById('aheadBtn');
