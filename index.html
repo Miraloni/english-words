@@ -981,6 +981,8 @@ function newCard(en, ru, example) {
     // повторениях, где интервалы заданы константами, то есть ни на что не влияет.
     lapses: 0,             // сколько раз слово провалено — в отличие от reps не обнуляется
     rescuedAt: null,       // при скольких провалах последний раз показывали спасательный экран
+    prepAt: null,          // при скольких провалах последний раз пробовали подготовить подсказку
+    prepOk: false,         // получилось ли; если нет — пробуем снова на следующем провале
     lastMode: null
   };
 }
@@ -1029,6 +1031,8 @@ function load() {
         if (c.seen === undefined) c.seen = c.introduced ? Math.max(2, (c.reps || 0) + (c.lapses || 0)) : 0;
         if (c.lastMode === undefined) c.lastMode = null;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
+        if (c.prepAt === undefined) c.prepAt = null;
+        if (c.prepOk === undefined) c.prepOk = false;
       });
       clampIntervals(d);
       // Разовая парковка: в оборот успела войти вся колода. Выполняется один раз,
@@ -1225,7 +1229,14 @@ function grade(card, quality) {
   }
   if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
-    if (card.lapses === data.leechThreshold - 1) prepRescue(card);
+    // Готовим подсказку за провал до порога. Раньше здесь стояло строгое равенство,
+    // и попытка была ровно одна: если в тот момент не было токена или сети, к порогу
+    // готовить было нечего, и экран показывал кнопку вместо картинки. Теперь пробуем
+    // на каждом провале начиная с «порог минус один», пока не получится.
+    if (card.lapses >= data.leechThreshold - 1 && !card.prepOk && card.prepAt !== card.lapses) {
+      card.prepAt = card.lapses;
+      prepRescue(card).then(ok => { card.prepOk = !!ok; save(data); });
+    }
     card.reps = 0;
     card.ease = Math.max(1.3, card.ease - 0.2);
     card.interval = 0;
@@ -1919,11 +1930,12 @@ function mountRescueImage(host, base, hostEl) {
 
 // За одну ошибку до порога готовим подсказку и картинку в фоне,
 // чтобы спасательный экран открылся мгновенно, а не с ожиданием.
+// Возвращает true, если подсказка готова: тогда повторных попыток не будет.
 async function prepRescue(card) {
   const cfg = apiConfig();
-  if (!cfg || !navigator.onLine) return;
+  if (!cfg || !navigator.onLine) return false;
   const base = normalize(card.en);
-  if (!/^[a-z][a-z' -]{0,39}$/.test(base)) return;
+  if (!/^[a-z][a-z' -]{0,39}$/.test(base)) return false;
   const host = cfg.url.replace(/\/+$/, '');
   const auth = { url: host, token: cfg.token };
 
@@ -1933,8 +1945,9 @@ async function prepRescue(card) {
       const r = await apiCall(auth, '/mnemonic', { word: base, meaning: card.ru });
       if (r.ok && r.data && r.data.text) { hint = r.data.text; mnRemember(base, hint); }
     }
-    await apiCall(auth, '/image', { word: base, meaning: card.ru, hint });
-  } catch (e) { /* не получилось — на пятой ошибке попробуем обычным путём */ }
+    const r = await apiCall(auth, '/image', { word: base, meaning: card.ru, hint });
+    return !!(r && r.ok);
+  } catch (e) { return false; }   // попробуем на следующем провале
 }
 
 // --- Спасательный экран для слов, которые никак не запоминаются ---
