@@ -529,6 +529,24 @@
       </div>
     </div>
 
+    <h3 class="section-label">Профиль</h3>
+    <div class="goal-row">
+      Название устройства:
+      <input id="devName" type="text" placeholder="например, iPhone" style="width:180px" />
+    </div>
+    <div class="goal-row">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+        <input id="devPrimary" type="checkbox" style="width:auto" />
+        Основное устройство
+      </label>
+      <span class="muted-note">на нём ведётся главная колода и проходит контрольный тест</span>
+    </div>
+    <div class="goal-row">
+      Дата экзамена:
+      <input id="examDate" type="date" style="width:180px" />
+      <span class="muted-note" id="examHint"></span>
+    </div>
+
     <h3 class="section-label">Настройки</h3>
     <div class="goal-row">
       Дневная цель (повторений):
@@ -918,7 +936,14 @@ function defaults() {
     dailyGoal: 20, reviewsToday: 0, reviewsDate: today(),
     newPerDay: DEFAULT_NEW_PER_DAY,
     streak: 0, lastStudyDate: null,
-    leechThreshold: 5
+    leechThreshold: 5,
+    schema: 2,
+    // Профиль переносится бэкапом. Калибровка сюда не попадает: она про устройство.
+    profile: {
+      examDate: null,       // необязательно; без даты горизонт бессрочный
+      deviceName: '',
+      isPrimary: false      // основное устройство: только на нём идёт отложенный тест
+    }
   };
 }
 
@@ -929,8 +954,13 @@ function load() {
       const d = JSON.parse(raw);
       // бэкфилл недостающих полей (миграция со старой версии)
       const def = defaults();
-      for (const k of ['dailyGoal', 'reviewsToday', 'reviewsDate', 'streak', 'lastStudyDate', 'sessionNew', 'sessionDate', 'newPerDay', 'leechThreshold']) {
+      for (const k of ['dailyGoal', 'reviewsToday', 'reviewsDate', 'streak', 'lastStudyDate', 'sessionNew', 'sessionDate', 'newPerDay', 'leechThreshold', 'schema']) {
         if (d[k] === undefined) d[k] = def[k];
+      }
+      // профиль добавляется по полям, чтобы миграция была идемпотентной
+      if (!d.profile || typeof d.profile !== 'object') d.profile = {};
+      for (const k of Object.keys(def.profile)) {
+        if (d.profile[k] === undefined) d.profile[k] = def.profile[k];
       }
       d.cards.forEach(c => {
         if (c.example === undefined) c.example = '';
@@ -1167,6 +1197,15 @@ function showMistake(host, given, card) {
 const API_STORE = 'english-words-api';   // отдельно от data, чтобы токен не попал в экспорт прогресса
 const AI_STORE = 'english-words-ai';
 const MN_STORE = 'wordnaut-mn';
+// Латентность принадлежит устройству, а не человеку: набор на телефоне
+// и на ноутбуке — разные распределения. Поэтому вне data и вне экспорта.
+const CALIB_STORE = 'wordnaut-calib';
+function calib() {
+  try { return JSON.parse(localStorage.getItem(CALIB_STORE) || '{}'); } catch (e) { return {}; }
+}
+function calibSave(c) {
+  try { localStorage.setItem(CALIB_STORE, JSON.stringify(c)); } catch (e) {}
+}
 const AI_CACHE_MAX = 500;
 
 function apiConfig() {
@@ -1526,7 +1565,21 @@ function mountRescueImage(host, base, hostEl) {
     try {
       const r = await apiCall({ url: host, token: cfg.token }, '/image',
         { word: base, meaning: current.ru, hint: MNEMONICS[base] || rescueHint || '', regenerate: !!regenerate });
-      if (!r.ok) throw new Error((r.data && r.data.error) || r.status);
+      if (!r.ok) {
+        const code = r.data && r.data.error;
+        // лимит картинок — не сбой: текст подсказки остаётся и работает сам по себе
+        if (code === 'image rate' || code === 'image quota') {
+          box.innerHTML = '';
+          const note = document.createElement('div');
+          note.className = 'rescue-wait';
+          note.textContent = code === 'image rate'
+            ? 'Картинки на сегодня закончились — подсказка выше работает и без неё'
+            : 'Картинки на этот месяц закончились — подсказка выше работает и без неё';
+          box.appendChild(note);
+          return;
+        }
+        throw new Error(code || r.status);
+      }
       const src = await loadRescueImage(host, base);
       src ? show(src) : offer();
     } catch (e) {
@@ -1977,6 +2030,7 @@ function renderStats() {
   document.getElementById('newPerDayInput').value = data.newPerDay;
   document.getElementById('leechInput').value = data.leechThreshold;
   renderLeeches();
+  renderProfile();
   renderApiSettings();
   updatePlanHint();
 }
@@ -2005,6 +2059,28 @@ document.getElementById('goalInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
   if (v >= 5) { data.dailyGoal = v; save(data); updateProgress(); }
 });
+//============ Профиль ============
+function renderProfile() {
+  const p = data.profile;
+  document.getElementById('devName').value = p.deviceName || '';
+  document.getElementById('devPrimary').checked = !!p.isPrimary;
+  document.getElementById('examDate').value = p.examDate || '';
+  const hint = document.getElementById('examHint');
+  if (!p.examDate) { hint.textContent = 'без даты — бессрочный горизонт'; return; }
+  const days = Math.ceil((new Date(p.examDate) - Date.now()) / DAY);
+  hint.textContent = days > 0 ? `· осталось ${days} дн.` : '· дата уже прошла';
+}
+
+document.getElementById('devName').addEventListener('change', e => {
+  data.profile.deviceName = e.target.value.trim().slice(0, 40); save(data);
+});
+document.getElementById('devPrimary').addEventListener('change', e => {
+  data.profile.isPrimary = e.target.checked; save(data);
+});
+document.getElementById('examDate').addEventListener('change', e => {
+  data.profile.examDate = e.target.value || null; save(data); renderProfile();
+});
+
 //============ Настройки разбора через ИИ ============
 function renderApiSettings() {
   const cfg = apiConfig();
@@ -2039,8 +2115,15 @@ document.getElementById('apiTest').onclick = async () => {
     const res = await apiCall({ url, token }, '/stats');
     if (res.status === 401) return apiStatus('Токен не подошёл');
     if (!res.ok) return apiStatus('Сервер ответил ' + res.status);
-    const s = res.data;
-    apiStatus(`Связь есть · сегодня ${s.usedToday}/${s.dailyLimit} · потрачено $${s.spentUsd} из $${s.capUsd}`);
+    const s = res.data, m = s.month || {};
+    const off = [];
+    if (m.explainAllowed === false) off.push('объяснения на месяц исчерпаны');
+    if (m.imagesRateLimited) off.push('картинки на сегодня исчерпаны');
+    else if (m.imagesAllowed === false) off.push('картинки на месяц исчерпаны');
+    apiStatus(`Связь есть · ${s.userName || s.user} · ${s.label}` +
+      ` · месяц: ${m.explain} объяснений, ${m.mnemonic} подсказок, ${m.image} картинок` +
+      ` · $${m.spent} из $${m.budgetUsd} · картинок сегодня ${m.imagesToday}/${m.imagesPerDay}` +
+      (off.length ? ' · ' + off.join(', ') : ''));
   } catch (e) {
     apiStatus('Не удалось подключиться — проверь адрес и интернет');
   }
