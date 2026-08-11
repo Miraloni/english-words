@@ -637,6 +637,37 @@ luggage; багаж; My luggage is too heavy.</pre>
 //============ Хранилище ============
 const STORAGE_KEY = 'english-words-v1';
 const DAY = 24 * 60 * 60 * 1000;
+// Потолок интервала. Явной графации в приложении нет и не было — слово никогда
+// не выводится из очереди. Но неограниченный рост интервала работал как скрытая
+// графация: при ease 2.5 цепочка успехов даёт 1 -> 3 -> 7 -> 19 -> 47 -> 117 -> 293
+// -> 733 дня, то есть после восьми успешных повторений слово исчезало на два года.
+//
+// Потолок — функция горизонта, а не константа:
+//
+// С датой экзамена: половина оставшегося срока. Каждое повторение пересчитывает
+// потолок от актуального остатка, поэтому плотность растёт к дате сама:
+// 300 -> 150 -> 75 -> 37 -> 18 -> 9 -> 4 -> 2 -> 1. Гарантирует, что каждое слово
+// будет извлечено до экзамена, и не укорачивает интервалы сверх необходимого —
+// по Kim & Webb (2022) более длинные интервалы выигрывают на отсроченном тесте,
+// поэтому сокращать их без причины вредно.
+//
+// Без даты: 180 дней. Смысл потолка здесь другой — не успеть к сроку, а не дать
+// слову тихо выпасть из ротации. Полгода достаточно длинный интервал, чтобы
+// уважать вывод И2 о пользе длинных интервалов, и достаточно короткий, чтобы
+// каждое слово проверялось хотя бы дважды в год.
+const MAX_INTERVAL_NO_DEADLINE = 180;
+
+// Профиль передаётся явно: функция вызывается из load(), где глобальная data
+// ещё не инициализирована.
+function maxIntervalDays(profile) {
+  const exam = profile && profile.examDate;
+  if (!exam) return MAX_INTERVAL_NO_DEADLINE;
+  const left = Math.ceil((new Date(exam + 'T00:00:00') - Date.now()) / DAY);
+  // дата прошла — дедлайна больше нет, возвращаемся к поддерживающему режиму
+  if (left <= 0) return MAX_INTERVAL_NO_DEADLINE;
+  return Math.max(1, Math.floor(left / 2));
+}
+
 const DEFAULT_NEW_PER_DAY = 40; // новых слов в день по умолчанию (настраивается)
 
 // Стартовый словарь: [английское, русское, пример (необязательно)]
@@ -926,6 +957,10 @@ function newCard(en, ru, example) {
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
     seen: 0,               // сколько раз слово предъявлялось и было оценено; не сбрасывается никогда,
                            // в отличие от reps, который обнуляется при провале
+    // TODO (P1-D): lapses смешивает два разных события. Слово, проваленное пять раз
+    // за вечер, и слово, забытое пять раз за два месяца, дают одинаковый штраф к ease,
+    // хотя это разные истории. Там же проверить ease: он меняется на первых двух
+    // повторениях, где интервалы заданы константами, то есть ни на что не влияет.
     lapses: 0,             // сколько раз слово провалено — в отличие от reps не обнуляется
     rescuedAt: null,       // при скольких провалах последний раз показывали спасательный экран
     lastMode: null
@@ -977,6 +1012,7 @@ function load() {
         if (c.lastMode === undefined) c.lastMode = null;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
       });
+      clampIntervals(d);
       return d;
     } catch (e) {}
   }
@@ -984,6 +1020,20 @@ function load() {
   save(d);
   return d;
 }
+// Подтягивает карточки, ушедшие за потолок. Выполняется при каждой загрузке,
+// поэтому по мере приближения экзамена расписание уплотняется само.
+// Операция идемпотентна: это взятие минимума, повторный запуск ничего не меняет.
+function clampIntervals(d) {
+  const cap = maxIntervalDays(d.profile);
+  const limit = Date.now() + cap * DAY;
+  let moved = 0;
+  for (const c of d.cards) {
+    if (c.interval > cap) { c.interval = cap; moved++; }
+    if (c.due !== null && c.due > limit) { c.due = limit; moved++; }
+  }
+  return moved;
+}
+
 function save(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
 function today() { return new Date().toISOString().slice(0, 10); }
 function yesterday() { return new Date(Date.now() - DAY).toISOString().slice(0, 10); }
@@ -1121,6 +1171,7 @@ function grade(card, quality) {
     if (card.reps === 0) card.interval = quality === 'easy' ? 2 : 1;
     else if (card.reps === 1) card.interval = quality === 'easy' ? 5 : (quality === 'hard' ? 2 : 3);
     else card.interval = Math.max(1, Math.round(card.interval * card.ease * mult * (quality === 'hard' ? 0.6 : 1)));
+    card.interval = Math.min(card.interval, maxIntervalDays(data.profile));
     card.reps++;
     card.due = Date.now() + card.interval * DAY;
   }
