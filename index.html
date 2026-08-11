@@ -219,19 +219,6 @@
   .cloze { font-family: var(--serif); font-size: 22px; line-height: 1.6; }
   .cloze b { color: var(--text-faint); letter-spacing: 0.08em; font-weight: 400; }
 
-  .assembled {
-    font-family: var(--serif); font-size: 34px; font-weight: 500;
-    letter-spacing: 0.06em; min-height: 44px; color: var(--text);
-  }
-  .letters { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
-  .letter {
-    width: 44px; height: 50px; font-family: var(--serif); font-size: 21px;
-    border-radius: var(--r); border: 1px solid var(--line); background: none;
-    color: var(--text); cursor: pointer;
-    transition: border-color 0.15s var(--ease), opacity 0.15s var(--ease);
-  }
-  .letter:hover:not([disabled]) { border-color: var(--line-strong); }
-  .letter[disabled] { opacity: 0.2; cursor: default; }
 
   /* ===== Разбор ошибки ===== */
   .rescue .word { color: var(--text); }
@@ -421,7 +408,6 @@
     .type-input { font-size: 22px; }
     .modal { padding: 22px 18px; max-height: 90vh; }
     .modal-actions button { flex: 1 1 100%; }
-    .letter { width: 40px; height: 46px; }
   }
 </style>
 </head>
@@ -497,6 +483,7 @@
     <div class="import-bar">
       <button class="btn-ghost" id="importBtn"><svg class="ico"><use href="#i-import"/></svg> Импорт из файла</button>
       <button class="btn-ghost" id="formatBtn"><svg class="ico"><use href="#i-file"/></svg> Формат и промпт для ИИ</button>
+      <button class="btn-ghost" id="browseBtn"><svg class="ico"><use href="#i-book"/></svg> Просмотр карточек</button>
       <input type="file" id="importFile" accept=".json,.csv,.txt,.tsv" hidden />
       <span class="import-status" id="importStatus"></span>
     </div>
@@ -603,6 +590,20 @@
 
     <button class="danger" id="resetBtn">Сбросить весь прогресс</button>
   </section>
+
+  <!-- ПРОСМОТР КОЛОДЫ: чтение без оценки -->
+  <div class="modal-overlay" id="browseModal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="browseClose" title="Закрыть"><svg class="ico"><use href="#i-cross"/></svg></button>
+      <h2>Просмотр карточек</h2>
+      <p style="margin-top:-8px">Ничего не оценивается, интервалы не меняются.</p>
+      <div id="browseBody"></div>
+      <div class="modal-actions" style="justify-content:space-between">
+        <button class="btn-ghost" id="browsePrev">← Назад</button>
+        <button class="btn-ghost" id="browseNext">Вперёд →</button>
+      </div>
+    </div>
+  </div>
 
   <!-- МОДАЛЬНОЕ ОКНО: формат импорта -->
   <div class="modal-overlay" id="fmtModal" hidden>
@@ -923,6 +924,8 @@ function newCard(en, ru, example) {
     due: null,        // null = новое слово
     introduced: false,
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
+    seen: 0,               // сколько раз слово предъявлялось и было оценено; не сбрасывается никогда,
+                           // в отличие от reps, который обнуляется при провале
     lapses: 0,             // сколько раз слово провалено — в отличие от reps не обнуляется
     rescuedAt: null,       // при скольких провалах последний раз показывали спасательный экран
     lastMode: null
@@ -968,6 +971,9 @@ function load() {
         // колода импортировалась по алфавиту — случайный order раскидывает её один раз и навсегда
         if (c.order === undefined) c.order = Math.random();
         if (c.lapses === undefined) c.lapses = 0;
+        // reps обнулялся при провалах, поэтому reps + lapses занижает число показов.
+        // Пол в двойке не даёт уже знакомому слову откатиться в ознакомительный режим.
+        if (c.seen === undefined) c.seen = c.introduced ? Math.max(2, (c.reps || 0) + (c.lapses || 0)) : 0;
         if (c.lastMode === undefined) c.lastMode = null;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
       });
@@ -1038,12 +1044,6 @@ function pickCard() {
   return null;
 }
 
-// Пул режимов по стадии освоения: узнавание → производство → закрепление
-function modesFor(card) {
-  if (!card.introduced || card.reps === 0) return ['choice'];
-  if (card.reps < 3) return ['choiceEn', 'type', 'cloze'];
-  return ['type', 'flip', 'cloze', 'assemble', 'listen'];
-}
 
 // Пропуск в примере возможен, только если слово встречается в нём ровно в словарной форме
 function clozeParts(card) {
@@ -1059,9 +1059,7 @@ function clozeParts(card) {
 }
 
 function modeUsable(mode, card) {
-  const base = card.en.replace(/^to /, '');
   if (mode === 'cloze') return !!clozeParts(card);
-  if (mode === 'assemble') return base.length >= 3 && base.length <= 12 && !/\s/.test(base);
   if (mode === 'listen') return !!window.speechSynthesis;
   return true;
 }
@@ -1076,20 +1074,38 @@ function needsRescue(card) {
 
 let rescueDone = false;   // спасение показывается один раз перед заданием
 
+// Распределение режимов по числу предъявлений (seen), а не по reps:
+// reps обнуляется при провале, поэтому по нему слово, которое не даётся,
+// бесконечно возвращалось бы в режим узнавания — прямо против И1.
+const INTRO_MODES = ['choice', 'choiceEn'];  // первые два предъявления: ознакомление
+const CLOZE_SHARE = 0.2;   // доля контекстного ввода среди продуктивных показов
+const LISTEN_FROM = 4;     // раньше этого предъявления на слух не спрашиваем
+const LISTEN_EVERY = 6;    // и дальше — каждый шестой
+
 function pickMode(card) {
   if (!rescueDone && needsRescue(card)) return 'rescue';
-  const pool = modesFor(card).filter(m => modeUsable(m, card));
-  if (!pool.length) return 'type';
-  // подряд один и тот же режим не даём — иначе разнообразие не чувствуется
-  const varied = pool.filter(m => m !== card.lastMode);
-  const from = varied.length ? varied : pool;
-  return from[Math.floor(Math.random() * from.length)];
+  const seen = card.seen || 0;
+
+  // Слово, которое человек видел меньше двух раз, продуктивным вводом
+  // проверять нечего: это будет пустой экран, а не припоминание.
+  if (seen < INTRO_MODES.length) return INTRO_MODES[seen];
+
+  // На слух — добавка к расписанию по фиксированному шагу. В общем пуле
+  // он съедал бы долю продуктивных показов, поэтому занимает слот целиком.
+  if (seen >= LISTEN_FROM && seen % LISTEN_EVERY === 0 && modeUsable('listen', card)) return 'listen';
+
+  // Дальше только продуктивное припоминание. Пропуск в предложении легче
+  // голого ввода — контекст подсказывает, — поэтому он в меньшинстве.
+  // Нет примера или слово стоит в нём в другой форме — молча уходим в type.
+  if (Math.random() < CLOZE_SHARE && modeUsable('cloze', card)) return 'cloze';
+  return 'type';
 }
 
 //============ Интервальное повторение (SM-2 lite) ============
 function grade(card, quality) {
   // quality: 'again' | 'hard' | 'good' | 'easy'
   if (!card.introduced) { card.introduced = true; data.sessionNew++; }
+  card.seen = (card.seen || 0) + 1;
 
   if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
@@ -1386,8 +1402,7 @@ function renderCard() {
   if (currentMode === 'type') return renderType();
   if (currentMode === 'listen') return renderListen();
   if (currentMode === 'cloze') return renderCloze();
-  if (currentMode === 'assemble') return renderAssemble();
-  return renderFlip();
+  return renderType();   // страховка: неизвестный режим не должен ронять экран
 }
 
 // --- Режим 1: выбор из вариантов. 'en2ru' — узнавание, 'ru2en' — подготовка к вводу ---
@@ -1720,101 +1735,52 @@ function bindTypeInput() {
   document.getElementById('checkBtn').onclick = submit;
 }
 
-// --- Режим: собрать слово из букв (лечит орфографию) ---
-function renderAssemble() {
-  const target = current.en.replace(/^to /, '');
-  const pool = shuffle(target.split('').map(ch => ({ ch, used: false })));
-  const picked = [];
+// --- Просмотр колоды: только чтение, без оценки и без влияния на интервалы ---
+let browseList = [], browseAt = 0;
 
-  const area = document.getElementById('cardArea');
-  area.innerHTML = `
+function openBrowse() {
+  const q = document.getElementById('search').value.toLowerCase();
+  browseList = data.cards.filter(c => !q || c.en.toLowerCase().includes(q) || c.ru.toLowerCase().includes(q));
+  if (!browseList.length) return;
+  browseAt = 0;
+  document.getElementById('browseModal').hidden = false;
+  renderBrowse();
+}
+function closeBrowse() { document.getElementById('browseModal').hidden = true; }
+
+function browseStep(d) {
+  browseAt = (browseAt + d + browseList.length) % browseList.length;
+  renderBrowse();
+}
+
+function renderBrowse() {
+  const c = browseList[browseAt];
+  const host = document.getElementById('browseBody');
+  host.innerHTML = `
     <div class="card">
-      <span class="mode-tag">Собери слово из букв</span>
-      <div class="translation">${esc(current.ru)}</div>
-      <div class="assembled" id="slot"></div>
-      <div class="letters" id="letters"></div>
-      <div class="feedback" id="fb"></div>
-    </div>
-    <div class="btn-row" style="justify-content:flex-end">
-      <button class="btn-ghost" id="undoBtn">Стереть</button>
-      <button class="btn-primary" id="checkBtn">Проверить</button>
+      <span class="mode-tag">${browseAt + 1} из ${browseList.length}</span>
+      <div class="word">${esc(c.en)}</div>
+      <button class="speak-btn" id="browseSpeak" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
+      <div class="translation">${esc(c.ru)}</div>
+      ${c.example ? `<div class="example">${esc(c.example)}</div>` : ''}
+      <div class="muted-note">показов: ${c.seen || 0} · провалов: ${c.lapses || 0}</div>
     </div>`;
-
-  const slot = document.getElementById('slot');
-  const host = document.getElementById('letters');
-  function draw() {
-    slot.textContent = picked.map(p => p.ch).join('') || '·····';
-    host.innerHTML = pool
-      .map((p, i) => `<button class="letter" data-i="${i}"${p.used ? ' disabled' : ''}>${esc(p.ch)}</button>`)
-      .join('');
-    host.querySelectorAll('.letter').forEach(b => {
-      b.onclick = () => {
-        const p = pool[+b.dataset.i];
-        if (p.used) return;
-        p.used = true; picked.push(p); draw();
-      };
-    });
-  }
-  draw();
-
-  document.getElementById('undoBtn').onclick = () => {
-    const p = picked.pop();
-    if (p) { p.used = false; draw(); }
-  };
-  document.getElementById('checkBtn').onclick = () => {
-    const ok = picked.map(p => p.ch).join('').toLowerCase() === target.toLowerCase();
-    const fb = document.getElementById('fb');
-    fb.innerHTML = ok ? 'Верно' : 'Правильно: <b>' + esc(target) + '</b>';
-    fb.className = 'feedback ' + (ok ? 'ok' : 'no');
-    speak(current.en);
-    grade(current, ok ? 'good' : 'again');
-    setTimeout(nextCard, ok ? 800 : 1700);
-  };
+  document.getElementById('browseSpeak').onclick = () => speak(c.en);
 }
 
-// --- Режим 3: классическая карточка с самооценкой (зрелые слова) ---
-let flipRevealed = false;
-function renderFlip() {
-  const area = document.getElementById('cardArea');
-  flipRevealed = false;
-  area.innerHTML = `
-    <div class="card" id="theCard" style="cursor:pointer">
-      <span class="mode-tag">${aheadMode ? 'Тренировка' : 'Вспомни перевод'}</span>
-      <div class="word">${esc(current.en)}</div>
-      <button class="speak-btn" id="speakBtn" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
-      <div class="hint">Нажми или Space, чтобы увидеть перевод</div>
-    </div>`;
-  document.getElementById('theCard').onclick = (e) => {
-    if (e.target.id === 'speakBtn') return;
-    revealFlip();
-  };
-  document.getElementById('speakBtn').onclick = (e) => { e.stopPropagation(); speak(current.en); };
-  speak(current.en);
-}
-
-function revealFlip() {
-  if (flipRevealed) return;
-  flipRevealed = true;
-  const area = document.getElementById('cardArea');
-  area.innerHTML = `
-    <div class="card">
-      <div class="word">${esc(current.en)}</div>
-      <button class="speak-btn" id="speakBtn" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
-      <div class="translation">${esc(current.ru)}</div>
-      <div id="exHost"></div>
-    </div>
-    <div class="rate-buttons" style="margin-top:14px">
-      <button class="btn-again" data-q="again">Не вспомнил<small>≈1 мин</small></button>
-      <button class="btn-hard" data-q="hard">Трудно<small>${intervalLabel(current,'hard')}</small></button>
-      <button class="btn-good" data-q="good">Хорошо<small>${intervalLabel(current,'good')}</small></button>
-      <button class="btn-easy" data-q="easy">Легко<small>${intervalLabel(current,'easy')}</small></button>
-    </div>`;
-  document.getElementById('speakBtn').onclick = () => speak(current.en);
-  if (current.example) showExample(document.getElementById('exHost'), true);
-  document.querySelectorAll('.rate-buttons button').forEach(b => {
-    b.onclick = () => { grade(current, b.dataset.q); nextCard(); };
-  });
-}
+document.getElementById('browseBtn').onclick = openBrowse;
+document.getElementById('browseClose').onclick = closeBrowse;
+document.getElementById('browsePrev').onclick = () => browseStep(-1);
+document.getElementById('browseNext').onclick = () => browseStep(1);
+document.getElementById('browseModal').addEventListener('click', e => {
+  if (e.target.id === 'browseModal') closeBrowse();
+});
+document.addEventListener('keydown', e => {
+  if (document.getElementById('browseModal').hidden) return;
+  if (e.key === 'Escape') closeBrowse();
+  if (e.key === 'ArrowLeft') browseStep(-1);
+  if (e.key === 'ArrowRight') browseStep(1);
+});
 
 // Показ примера-предложения с подсветкой слова
 function showExample(host, inline) {
@@ -1847,13 +1813,6 @@ document.addEventListener('keydown', e => {
   if (!document.getElementById('study').classList.contains('active')) return;
   if (document.activeElement && document.activeElement.tagName === 'INPUT'
       && document.activeElement.id === 'typeIn') return;
-  if (currentMode === 'flip') {
-    if (e.code === 'Space') { e.preventDefault(); flipRevealed ? null : revealFlip(); }
-    if (flipRevealed && ['1','2','3','4'].includes(e.key)) {
-      const map = { '1':'again','2':'hard','3':'good','4':'easy' };
-      grade(current, map[e.key]); nextCard();
-    }
-  }
   if ((currentMode === 'choice' || currentMode === 'choiceEn') && ['1','2','3','4'].includes(e.key)) {
     const btns = document.querySelectorAll('#choices .choice');
     const idx = +e.key - 1;
