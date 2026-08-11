@@ -957,6 +957,9 @@ function newCard(en, ru, example) {
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
     seen: 0,               // сколько раз слово предъявлялось и было оценено; не сбрасывается никогда,
                            // в отличие от reps, который обнуляется при провале
+    // TODO (P1-D): hard больше не производится — оценка выводится из
+    // правильности, скорости и правок, а ручной самооценки нет. Ветка hard в grade()
+    // остаётся мёртвым кодом; решить в P1-D, вместе с lapses и ease.
     // TODO (P1-D): lapses смешивает два разных события. Слово, проваленное пять раз
     // за вечер, и слово, забытое пять раз за два месяца, дают одинаковый штраф к ease,
     // хотя это разные истории. Там же проверить ease: он меняется на первых двух
@@ -1153,10 +1156,19 @@ function pickMode(card) {
 
 //============ Интервальное повторение (SM-2 lite) ============
 function grade(card, quality) {
-  // quality: 'again' | 'hard' | 'good' | 'easy'
+  // quality: 'again' | 'typo' | 'good' | 'easy'
+  // Ветки hard ниже — мёртвый код: см. TODO (P1-D) у newCard.
   if (!card.introduced) { card.introduced = true; data.sessionNew++; }
   card.seen = (card.seen || 0) + 1;
 
+  if (quality === 'typo') {
+    // Слово известно, написание — нет. Расписание не трогаем совсем, но
+    // возвращаем карточку в этой же сессии, чтобы написание было воспроизведено.
+    card.due = Date.now() + 10 * 60 * 1000;
+    registerReview();
+    save(data);
+    return;
+  }
   if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
     if (card.lapses === data.leechThreshold - 1) prepRescue(card);
@@ -1231,10 +1243,67 @@ function lev(a, b) {
       dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
   return dp[m][n];
 }
+// Раньше здесь прощалось любое расстояние Левенштейна 1, то есть и recieve,
+// и adress, и form вместо from. Теперь совпадение строгое, а промахи пальцем
+// разбираются отдельными правилами ниже.
 function isMatch(input, answer) {
   const ni = normalize(input);
   if (!ni) return false;
-  return variants(answer).some(v => v === ni || (v.length > 3 && lev(v, ni) <= 1));
+  return variants(answer).some(v => v === ni);
+}
+
+const VOWELS = 'aeiouy';
+
+// Перестановка двух соседних букв. Прощаем только если хотя бы одна из них
+// согласная: перестановка двух гласных в английском почти всегда правило
+// написания (ie/ei в receive, friend, believe), то есть незнание, а не моторика.
+function isTranspose(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = [];
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff.push(i);
+  if (diff.length !== 2 || diff[1] - diff[0] !== 1) return false;
+  const [i, j] = diff;
+  if (a[i] !== b[j] || a[j] !== b[i]) return false;
+  return !(VOWELS.includes(a[i]) && VOWELS.includes(a[j]));
+}
+
+// Удвоение или пропуск буквы в удвоении: address/adress, running/runing.
+// Схлопнутые строки должны совпасть, и ровно одна серия отличается ровно на единицу.
+function runs(w) {
+  const out = [];
+  for (const ch of w) {
+    if (out.length && out[out.length - 1][0] === ch) out[out.length - 1][1]++;
+    else out.push([ch, 1]);
+  }
+  return out;
+}
+function isDoubling(a, b) {
+  const ra = runs(a), rb = runs(b);
+  if (ra.length !== rb.length) return false;
+  let differing = 0;
+  for (let i = 0; i < ra.length; i++) {
+    if (ra[i][0] !== rb[i][0]) return false;
+    const d = Math.abs(ra[i][1] - rb[i][1]);
+    if (d === 0) continue;
+    if (d !== 1) return false;
+    differing++;
+  }
+  return differing === 1;
+}
+
+// Какое правило сработало, если ответ не совпал точно
+function typoKind(input, answer) {
+  const ni = normalize(input);
+  if (!ni) return null;
+  // Перестановка иногда даёт другое настоящее слово: form вместо from, quite вместо quiet.
+  // Введено другое слово из колоды — это не промах пальцем, а путаница, и она неверна.
+  if (data && data.cards && data.cards.some(c => normalize(c.en) === ni)) return null;
+  for (const v of variants(answer)) {
+    if (v.length < 4) continue;          // на коротких словах прощать нечего
+    if (isTranspose(v, ni)) return 'перестановка';
+    if (isDoubling(v, ni)) return 'удвоение';
+  }
+  return null;
 }
 
 //============ Разбор ошибки ============
@@ -1287,6 +1356,46 @@ function calib() {
 }
 function calibSave(c) {
   try { localStorage.setItem(CALIB_STORE, JSON.stringify(c)); } catch (e) {}
+}
+
+// Окна раздельны по режимам: в listen нет извлечения перевода, в cloze контекст
+// сужает ответ. Одно общее окно раздуло бы разброс, и порог перестал бы различать
+// уверенность — то есть сломалось бы ровно то, ради чего он вводится.
+const CALIB_WINDOW = 200;   // сколько последних замеров храним по режиму
+const CALIB_MIN = 30;       // до этого числа собственное окно не используется
+const CALIB_OVERHEAD = 5;   // эквивалент постоянных затрат в символах
+const CALIB_K = 1.0;        // во сколько сигм отступаем от медианы
+
+function median(xs) {
+  const a = [...xs].sort((x, y) => x - y);
+  const m = a.length >> 1;
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+
+function calibPush(mode, rate) {
+  const c = calib();
+  if (!Array.isArray(c[mode])) c[mode] = [];
+  c[mode].push(Math.round(rate));
+  if (c[mode].length > CALIB_WINDOW) c[mode] = c[mode].slice(-CALIB_WINDOW);
+  calibSave(c);
+}
+
+// Своё окно, если набралось; иначе общий пул как временный фолбэк; иначе ничего.
+function calibSample(mode) {
+  const c = calib();
+  const own = c[mode] || [];
+  if (own.length >= CALIB_MIN) return own;
+  const pooled = Object.values(c).filter(Array.isArray).flat();
+  return pooled.length >= CALIB_MIN ? pooled : null;
+}
+
+// Медиана и MAD: занятия в транспорте гарантируют выбросы, среднее здесь неприменимо.
+function latencyThreshold(mode) {
+  const xs = calibSample(mode);
+  if (!xs) return null;
+  const med = median(xs);
+  const mad = median(xs.map(x => Math.abs(x - med)));
+  return med + CALIB_K * 1.4826 * mad;
 }
 const AI_CACHE_MAX = 500;
 
@@ -1533,21 +1642,60 @@ function renderType() {
   bindTypeInput();
 }
 
+// Замеры для оценки уверенности. Ставятся в bindTypeInput, читаются здесь.
+let answerStart = 0, answerEdits = 0;
+
+// Лог прощённых опечаток. Через месяц будет видно, действительно ли прощённые
+// слова выучиваются, или прощение маскирует незнание.
+const TYPO_LOG = 'wordnaut-typos';
+function logTypo(en, typed, rule) {
+  try {
+    const log = JSON.parse(localStorage.getItem(TYPO_LOG) || '[]');
+    log.push({ t: Date.now(), en, typed, rule });
+    localStorage.setItem(TYPO_LOG, JSON.stringify(log.slice(-300)));
+  } catch (e) {}
+}
+
+// Верный ответ, набранный быстро и без правок, — это узнавание, а не припоминание.
+// Медленный или переписанный ответ — извлечение с усилием, и интервал должен быть короче.
+function confidenceQuality(mode, word) {
+  if (answerEdits > 0) return 'good';
+  const rate = (Date.now() - answerStart) / (word.length + CALIB_OVERHEAD);
+  const th = latencyThreshold(mode);
+  calibPush(mode, rate);
+  if (th === null) return 'good';       // до накопления замеров ничего не различаем
+  return rate <= th ? 'easy' : 'good';
+}
+
 function checkTyped(value) {
   const input = document.getElementById('typeIn');
   const fb = document.getElementById('fb');
-  const ok = isMatch(value, current.en);
+  const mode = currentMode === 'cloze' || currentMode === 'listen' ? currentMode : 'type';
+  const exact = isMatch(value, current.en);
+  const rule = exact ? null : typoKind(value, current.en);
+  const ok = exact || !!rule;
+
   input.classList.add(ok ? 'correct' : 'wrong');
   input.disabled = true;
   speak(current.en);
 
   if (ok) {
-    fb.textContent = 'Верно · ' + current.en;
-    fb.className = 'feedback ok';
     const okBtn = document.getElementById('checkBtn');
     if (okBtn) okBtn.remove();
-    grade(current, 'good');
-    setTimeout(nextCard, 850);
+    if (rule) {
+      // Промах пальцем: слово засчитано, но карточка вернётся в этой же сессии —
+      // написание всё-таки не воспроизведено.
+      logTypo(current.en, value, rule);
+      fb.innerHTML = 'Засчитано · <b>' + esc(current.en) + '</b> — опечатка, вернём ещё раз';
+      fb.className = 'feedback ok';
+      grade(current, 'typo');
+      setTimeout(nextCard, 1400);
+    } else {
+      fb.textContent = 'Верно · ' + current.en;
+      fb.className = 'feedback ok';
+      grade(current, confidenceQuality(mode, normalize(current.en)));
+      setTimeout(nextCard, 850);
+    }
   } else {
     fb.innerHTML = 'Правильно: <b>' + esc(current.en) + '</b> — ' + esc(current.ru);
     fb.className = 'feedback no';
@@ -1559,12 +1707,11 @@ function checkTyped(value) {
     const btn = document.createElement('div');
     btn.className = 'btn-row';
     btn.style.justifyContent = 'flex-end';
-    btn.innerHTML = `
-      <button class="btn-ghost" id="iWasRight">Промахнулась по клавише</button>
-      <button class="btn-primary" id="contBtn">Дальше</button>`;
+    // Кнопки «Промахнулась по клавише» больше нет: самооценка после показа
+    // верного ответа систематически завышена, а промах пальцем теперь распознаётся сам.
+    btn.innerHTML = '<button class="btn-primary" id="contBtn">Дальше</button>';
     area.appendChild(btn);
     document.getElementById('contBtn').onclick = () => { grade(current, 'again'); nextCard(); };
-    document.getElementById('iWasRight').onclick = () => { grade(current, 'good'); nextCard(); };
   }
 }
 
@@ -1781,8 +1928,13 @@ function renderCloze() {
 function bindTypeInput() {
   const input = document.getElementById('typeIn');
   input.focus();
+  answerStart = Date.now();
+  answerEdits = 0;
   const submit = () => checkTyped(input.value);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' || e.key === 'Delete') answerEdits++;
+    if (e.key === 'Enter') submit();
+  });
   document.getElementById('checkBtn').onclick = submit;
 }
 
