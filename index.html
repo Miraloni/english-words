@@ -940,6 +940,7 @@ function defaults() {
     schema: 2,
     // Профиль переносится бэкапом. Калибровка сюда не попадает: она про устройство.
     profile: {
+      l1: 'ru',             // родной язык: от него зависят keyword-метод и набор ложных друзей
       examDate: null,       // необязательно; без даты горизонт бессрочный
       deviceName: '',
       isPrimary: false      // основное устройство: только на нём идёт отложенный тест
@@ -1120,8 +1121,22 @@ function intervalLabel(card, q) {
   return i === 1 ? '1 день' : i + ' дн.';
 }
 
+// Отметка о занятии. День без единого обращения к модели иначе не создал бы
+// строки в учёте, и «дни занятий» считались бы как «дни обращений к ИИ».
+const SESSION_STORE = 'wordnaut-session';
+function markSession() {
+  const cfg = apiConfig();
+  if (!cfg || !navigator.onLine) return;
+  let last = '';
+  try { last = localStorage.getItem(SESSION_STORE) || ''; } catch (e) {}
+  if (last === today()) return;
+  try { localStorage.setItem(SESSION_STORE, today()); } catch (e) {}
+  apiCall({ url: cfg.url.replace(/\/+$/, ''), token: cfg.token }, '/session').catch(() => {});
+}
+
 // Учёт цели дня и стрика
 function registerReview() {
+  markSession();
   if (data.reviewsDate !== today()) { data.reviewsDate = today(); data.reviewsToday = 0; }
   data.reviewsToday++;
   if (data.lastStudyDate !== today()) {
@@ -2121,7 +2136,7 @@ document.getElementById('apiTest').onclick = async () => {
     if (m.imagesRateLimited) off.push('картинки на сегодня исчерпаны');
     else if (m.imagesAllowed === false) off.push('картинки на месяц исчерпаны');
     apiStatus(`Связь есть · ${s.userName || s.user} · ${s.label}` +
-      ` · месяц: ${m.explain} объяснений, ${m.mnemonic} подсказок, ${m.image} картинок` +
+      ` · месяц: ${m.studyDays} дн. занятий, ${m.explain} объяснений, ${m.mnemonic} подсказок, ${m.image} картинок` +
       ` · $${m.spent} из $${m.budgetUsd} · картинок сегодня ${m.imagesToday}/${m.imagesPerDay}` +
       (off.length ? ' · ' + off.join(', ') : ''));
   } catch (e) {
