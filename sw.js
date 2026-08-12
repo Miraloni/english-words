@@ -1,4 +1,4 @@
-const CACHE = 'wordnaut-v27';
+const CACHE = 'wordnaut-v28';
 const ASSETS = [
   './',
   './index.html',

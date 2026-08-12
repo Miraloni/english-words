@@ -563,6 +563,21 @@
     </p>
     <table id="forecastTable" style="width:100%"></table>
 
+    <h3 class="section-label">Контрольный тест</h3>
+    <p class="muted-note" style="margin:0 0 10px">
+      Проверяет слова <b>раньше</b> назначенного срока и не меняет расписание.
+      Обычное повторение даёт точку только на самом интервале; тест заполняет
+      промежуток и показывает, не рассыпается ли слово задолго до срока.
+    </p>
+    <div id="testHistBox"></div>
+    <div class="goal-row">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+        <input id="testEnabled" type="checkbox" style="width:auto" />
+        Проводить контрольный тест
+      </label>
+      <span class="muted-note">только на основном устройстве, раз в 3-4 недели</span>
+    </div>
+
     <h3 class="section-label">Держит ли лестница</h3>
     <p class="muted-note" style="margin:0 0 10px">
       Доля вспомненных слов после каждого интервала. Считается по обычным повторениям,
@@ -635,6 +650,15 @@
   </section>
 
   <!-- ПРОСМОТР КОЛОДЫ: чтение без оценки -->
+  <!-- КОНТРОЛЬНЫЙ ТЕСТ: измерение, расписание не меняется -->
+  <div class="modal-overlay" id="testModal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="testClose" title="Закрыть"><svg class="ico"><use href="#i-cross"/></svg></button>
+      <h2>Контрольный тест</h2>
+      <div id="testBody"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="browseModal" hidden>
     <div class="modal">
       <button class="modal-close" id="browseClose" title="Закрыть"><svg class="ico"><use href="#i-cross"/></svg></button>
@@ -756,6 +780,34 @@ const CONFIG_DEFAULTS = {
     // Чем заменяем долю верных, пока истории нет (Э, намеренно пессимистично):
     // 75% верных дают поправку 1.48 против 1.16 при 87%.
     assumedAccuracy: 0.75
+  },
+  test: {
+    // Контрольный тест: измеряет удержание МЕЖДУ повторениями. Обычное повторение
+    // даёт точку только на самом интервале и никогда не показывает, что было
+    // до него. Слово со ступени 75 дней, проверенное на 40-й, даёт наблюдение,
+    // которого расписание не даст никогда, — и сигнал приходит ДО того, как
+    // ступень провалится, а не после.
+    enabled: true,
+    everyDays: 25,          // Э: цикл 3-4 недели
+    // Ниже этого теста не запускаем: он стоит дня без новых слов, а страта,
+    // дающая 3 слова за раз, выходит на точность +-10 пунктов через 20 месяцев.
+    // При 4 словах в страте — 15 месяцев, при 12 в тесте — полгода.
+    minTotal: 12,
+    minStrata: 2,           // одна ступень не даёт сравнения между ступенями
+    minPerStratum: 4,
+    maxTotal: 30,
+    // Абсолютный пол: слово, проверенное неделю назад, кривую не измеряет (Э).
+    minDaysSinceCheck: 14,
+    // Тест стоит дня без новых слов, поэтому тратится на ступени, где журнал
+    // исходов беспомощен: короткие он закрывает сотнями наблюдений за три месяца,
+    // а 75 и 160 дней не закроет и за год. Ступень 5 — это 35 дней.
+    //
+    // ВАЖНО: раньше здесь стояла ступень 3 вместе с полом в 20 дней, и ступени
+    // 3-4 (7 и 16 дней) оказывались недостижимы вообще — их интервал короче пола.
+    // Ограничение было настоящим, но случайным; теперь оно явное.
+    minStep: 5,
+    // Слово, проверенное вчера, измерять бессмысленно. Доля назначенного интервала.
+    minFraction: 0.33
   },
   caches: {
     // ЭВРИСТИКА. Раньше потолка у кэша мнемоник не было вовсе, и при цели
@@ -1382,9 +1434,12 @@ function pickCard() {
   // сдвинулась сразу, потому что сравнение идёт с текущим значением настройки.
   // «Сверх лимита» эти две границы НЕ обходит: раньше обходил, и за один вечер
   // при норме 20 вводилось 46 новых слов.
+  // В день контрольного теста новые слова не вводятся: тест и так сверх дневной
+  // цели, а новые слова добавили бы нагрузку и смазали измерение.
+  const testToday = data.lastTestDate === today();
   const fresh = newCards().sort((a, b) => a.order - b.order);
   const room = inWorkCards(data).length < CFG.load.maxInWork;
-  if (fresh.length && data.sessionNew < data.newPerDay && room) return fresh[0];
+  if (fresh.length && !testToday && data.sessionNew < data.newPerDay && room) return fresh[0];
   // 3) сверх лимита и новых не осталось — даём ближайшее будущее слово для тренировки
   if (overLimit) {
     const future = data.cards.filter(c => c.due !== null).sort((a, b) => a.due - b.due);
@@ -1590,6 +1645,208 @@ function earliestFor(stepIndex) {
     if (best === null || t < best) best = t;
   }
   return best;
+}
+
+//============ Контрольный тест: измерение кривой между повторениями ============
+const TEST_STORE = 'wordnaut-tests';
+function testHistory() {
+  try { return JSON.parse(localStorage.getItem(TEST_STORE) || '[]'); } catch (e) { return []; }
+}
+
+// Доля назначенного интервала, которую слово уже отстояло.
+function elapsedFraction(c) {
+  if (!c.lastSeen || !c.interval) return 0;
+  return (Date.now() - c.lastSeen) / (c.interval * DAY);
+}
+
+function testCandidates() {
+  const t = CFG.test, now = Date.now();
+  return data.cards.filter(c =>
+    c.introduced && c.due !== null &&
+    (c.step || 0) >= t.minStep &&
+    c.lastSeen && now - c.lastSeen >= t.minDaysSinceCheck * DAY &&
+    elapsedFraction(c) >= t.minFraction &&
+    elapsedFraction(c) < 1);        // после срока это уже обычное повторение, а не точка кривой
+}
+
+// Отбор по стратам. Внутри страты берём слова с РАЗНОЙ долей отстоянного интервала:
+// если всегда брать около трети, получится одна точка кривой вместо кривой.
+function spreadByFraction(list, take) {
+  const sorted = list.slice().sort((a, b) => elapsedFraction(a) - elapsedFraction(b));
+  if (sorted.length <= take) return sorted;
+  const out = [];
+  for (let i = 0; i < take; i++) out.push(sorted[Math.round(i * (sorted.length - 1) / (take - 1))]);
+  return out.filter((c, i, arr) => arr.indexOf(c) === i);
+}
+
+// Возвращает { items, composition } или { error } — почему тест не собрался.
+function buildTest() {
+  const t = CFG.test;
+  const byStep = {};
+  for (const c of testCandidates()) {
+    const st = c.step;
+    (byStep[st] = byStep[st] || []).push(c);
+  }
+  // Страта, в которой меньше minPerStratum, не берётся: она не наберётся за
+  // обозримый срок, и день на неё тратить незачем. Молча добирать из соседней
+  // ступени нельзя — это вернуло бы одну ступень под видом стратификации.
+  const steps = Object.keys(byStep).map(Number).sort((a, b) => a - b)
+    .filter(st => byStep[st].length >= t.minPerStratum);
+  if (steps.length < t.minStrata) {
+    return { error: 'набралось страт: ' + steps.length + ', нужно ' + t.minStrata };
+  }
+  const perStratum = Math.max(t.minPerStratum, Math.floor(t.maxTotal / steps.length));
+  const items = [], composition = [];
+  for (const st of steps) {
+    const picked = spreadByFraction(byStep[st], Math.min(perStratum, byStep[st].length));
+    items.push(...picked);
+    composition.push({ step: st, iv: ladderInterval(st), n: picked.length });
+  }
+  if (items.length < t.minTotal) {
+    return { error: 'набралось слов: ' + items.length + ', нужно ' + t.minTotal };
+  }
+  return { items: shuffle(items), composition: composition };
+}
+
+// Состав словами, а не подписью мелким шрифтом: через месяц иначе не вспомнить,
+// из чего собирался тест, и сравнить несравнимое.
+function compositionText(comp) {
+  const total = comp.reduce((s, x) => s + x.n, 0);
+  return total + ' слов: ' + comp.map(x => x.n + ' со ступени ' + x.iv + ' дн').join(', ');
+}
+
+function testDue() {
+  if (!CFG.test.enabled || !data.profile.isPrimary) return false;
+  const last = data.lastTestDate ? new Date(data.lastTestDate + 'T00:00:00').getTime() : 0;
+  return Date.now() - last >= CFG.test.everyDays * DAY;
+}
+
+// Ожидаемое удержание на доле f от назначенного интервала.
+// Если на самом интервале журнал исходов даёт удержание R, то при экспоненциальном
+// забывании удержание на доле f равно R^f. Это МОДЕЛЬ, а не факт: она нужна лишь
+// чтобы отличить отклонение от нормы, иначе голый процент читается как провал.
+function expectedRetention(step) {
+  const iv = ladderInterval(step);
+  const log = outcomes().filter(r => r.iv === iv);
+  if (log.length < CFG.load.minObservations) return null;
+  const R = log.filter(r => r.ok).length / log.length;
+  return function (f) { return Math.pow(Math.max(0.01, R), f); };
+}
+
+let testRun = null;   // { items, composition, at, answers }
+
+function openTest() {
+  const built = buildTest();
+  const body = document.getElementById('testBody');
+  document.getElementById('testModal').hidden = false;
+  if (built.error) {
+    body.innerHTML = '<p>Тест не собрался: ' + esc(built.error) + '.</p>'
+      + '<p class="muted-note">Слишком маленький тест — не измерение, а потерянный день '
+      + 'без новых слов. Попробуем через неделю, когда наберётся.</p>';
+    // цикл пропускаем, но не на месяц: условия могли измениться
+    data.lastTestDate = new Date(Date.now() - (CFG.test.everyDays - 7) * DAY).toISOString().slice(0, 10);
+    save(data);
+    return;
+  }
+  testRun = { items: built.items, composition: built.composition, at: 0, answers: [] };
+  renderTestCard();
+}
+
+function closeTest() {
+  document.getElementById('testModal').hidden = true;
+  testRun = null;
+}
+
+function renderTestCard() {
+  const body = document.getElementById('testBody');
+  const r = testRun;
+  if (r.at >= r.items.length) return finishTest();
+  const c = r.items[r.at];
+  body.innerHTML = '<span class="muted-note">' + (r.at + 1) + ' из ' + r.items.length
+    + ' · результат не меняет расписание</span>'
+    + '<div class="card"><div class="word">' + esc(c.ru) + '</div></div>'
+    + '<input class="type-input" id="testIn" placeholder="english word…" autocomplete="off" '
+    + 'autocapitalize="off" spellcheck="false" />'
+    + '<div class="feedback" id="testFb"></div>'
+    + '<div class="btn-row" style="justify-content:flex-end">'
+    + '<button class="btn-primary" id="testCheck">Проверить</button></div>';
+  const input = document.getElementById('testIn');
+  input.focus();
+  const submit = () => {
+    if (input.disabled) return;
+    const ok = isMatch(input.value, c.en) || !!typoKind(input.value, c.en);
+    input.disabled = true;
+    input.classList.add(ok ? 'correct' : 'wrong');
+    const fb = document.getElementById('testFb');
+    fb.innerHTML = ok ? 'Верно · <b>' + esc(c.en) + '</b>' : 'Правильно: <b>' + esc(c.en) + '</b>';
+    fb.className = 'feedback ' + (ok ? 'ok' : 'no');
+    // Измерение, а не повторение: grade() не вызывается, расписание не трогается.
+    r.answers.push({ step: c.step, iv: c.interval, f: elapsedFraction(c),
+                     days: Math.round((Date.now() - c.lastSeen) / DAY), ok: ok });
+    document.getElementById('testCheck').textContent = 'Дальше';
+    document.getElementById('testCheck').onclick = () => { r.at++; renderTestCard(); };
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  document.getElementById('testCheck').onclick = submit;
+}
+
+function finishTest() {
+  const r = testRun;
+  const rec = {
+    date: today(),
+    composition: r.composition,
+    // Разбивка по стратам: общий процент теста из 20 слов и теста из 30 —
+    // разные величины, и усреднять их между тестами нельзя.
+    strata: r.composition.map(cm => {
+      const a = r.answers.filter(x => x.step === cm.step);
+      return { step: cm.step, iv: cm.iv, n: a.length, ok: a.filter(x => x.ok).length,
+               days: Math.round(a.reduce((s, x) => s + x.days, 0) / Math.max(1, a.length)),
+               f: a.reduce((s, x) => s + x.f, 0) / Math.max(1, a.length) };
+    }),
+    points: r.answers.map(x => ({ iv: x.iv, days: x.days, ok: x.ok }))
+  };
+  const hist = testHistory();
+  hist.push(rec);
+  safeSet(TEST_STORE, JSON.stringify(hist.slice(-40)));
+  data.lastTestDate = today();
+  save(data);
+
+  document.getElementById('testBody').innerHTML =
+    '<p><b>' + esc(compositionText(r.composition)) + '</b></p>'
+    + testResultTable(rec)
+    + '<p class="muted-note">Это точки на кривой забывания, а не оценка памяти: слово '
+    + 'проверено РАНЬШЕ назначенного срока. Низкое число на ранней доле интервала — '
+    + 'повод присмотреться к ступени, но не менять её по одному тесту.</p>'
+    + '<div class="btn-row" style="justify-content:flex-end">'
+    + '<button class="btn-primary" id="testDone">Готово</button></div>';
+  document.getElementById('testDone').onclick = () => { closeTest(); renderStats(); };
+  testRun = null;
+}
+
+// Голый процент читался бы как провал памяти, поэтому рядом ожидаемое значение.
+function testResultTable(rec) {
+  const rows = rec.strata.map(st => {
+    const exp = expectedRetention(st.step);
+    const got = st.n ? st.ok / st.n : 0;
+    const e = exp ? exp(st.f) : null;
+    let verdict = '<span class="muted-note">нет данных для сравнения</span>';
+    if (e !== null) {
+      const diff = (got - e) * 100;
+      verdict = Math.abs(diff) < 15
+        ? '<span class="muted-note">в пределах ожидаемого</span>'
+        : (diff < 0 ? '<span style="color:var(--no)">ниже ожидаемого на ' + Math.round(-diff) + ' п.п.</span>'
+                    : 'выше ожидаемого на ' + Math.round(diff) + ' п.п.');
+    }
+    return '<tr><td>на ' + st.days + '-й день при назначенных ' + st.iv + '</td>'
+      + '<td style="text-align:right">' + Math.round(got * 100) + '% <span class="muted-note">('
+      + st.ok + ' из ' + st.n + ')</span></td>'
+      + '<td style="text-align:right">' + (e === null ? '—' : Math.round(e * 100) + '%') + '</td>'
+      + '<td style="text-align:right">' + verdict + '</td></tr>';
+  }).join('');
+  return '<table style="width:100%"><tr><td class="muted-note">когда проверено</td>'
+    + '<td class="muted-note" style="text-align:right">вспомнила</td>'
+    + '<td class="muted-note" style="text-align:right">ожидалось</td>'
+    + '<td class="muted-note" style="text-align:right"></td></tr>' + rows + '</table>';
 }
 
 //============ Сопоставление ответа (для ввода) ============
@@ -1923,6 +2180,14 @@ function renderCard() {
       </div>`;
     const ahead = document.getElementById('aheadBtn');
     if (ahead) ahead.onclick = () => { overLimit = true; nextCard(); };
+    if (testDue()) {
+      const t = document.createElement('button');
+      t.className = 'btn-ghost';
+      t.style.cssText = 'margin-top:10px';
+      t.textContent = 'Пройти контрольный тест';
+      t.onclick = openTest;
+      area.querySelector('.empty').appendChild(t);
+    }
     return;
   }
   if (currentMode === 'rescue') return renderRescue();
@@ -2359,6 +2624,11 @@ function renderBrowse() {
 
 document.getElementById('browseBtn').onclick = openBrowse;
 document.getElementById('browseClose').onclick = closeBrowse;
+document.getElementById('testClose').onclick = closeTest;
+document.getElementById('testEnabled').addEventListener('change', e => {
+  setUserConfig('test', 'enabled', e.target.checked);
+  renderTestHistory();
+});
 document.getElementById('browsePrev').onclick = () => browseStep(-1);
 document.getElementById('browseNext').onclick = () => browseStep(1);
 document.getElementById('browseModal').addEventListener('click', e => {
@@ -2849,6 +3119,24 @@ function renderRetention() {
     + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '') + '</span>';
 }
 
+function renderTestHistory() {
+  const box = document.getElementById('testHistBox');
+  document.getElementById('testEnabled').checked = !!CFG.test.enabled;
+  const hist = testHistory();
+  if (!hist.length) {
+    const built = data.profile.isPrimary ? buildTest() : { error: 'устройство не основное' };
+    box.innerHTML = '<span class="muted-note">· тестов ещё не было'
+      + (built.error ? ' · сейчас не собрать: ' + esc(built.error) : ' · готов к запуску: ' + esc(compositionText(built.composition)))
+      + '</span>';
+    return;
+  }
+  // Между тестами сравниваются только страты: общий процент теста из 20 слов
+  // и из 30 — разные величины.
+  box.innerHTML = hist.slice(-6).reverse().map(r =>
+    '<div style="margin-bottom:14px"><b>' + esc(r.date) + '</b> · '
+    + esc(compositionText(r.composition)) + testResultTable(r) + '</div>').join('');
+}
+
 function renderCapLog() {
   const box = document.getElementById('capLogBox');
   const log = Array.isArray(data.capLog) ? data.capLog : [];
@@ -2882,6 +3170,7 @@ function renderStats() {
   renderCap();
   renderOutlook();
   renderForecast();
+  renderTestHistory();
   renderRetention();
   renderCapLog();
   renderProfile();
