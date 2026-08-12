@@ -570,6 +570,7 @@
       Разбор идёт вне очереди и не меняет расписание.
     </p>
     <div id="trapsBox"></div>
+    <div id="ffReviewBox" style="margin-top:12px"></div>
     <div class="goal-row">
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer">
         <input id="trapsEnabled" type="checkbox" style="width:auto" />
@@ -843,7 +844,11 @@ const CONFIG_DEFAULTS = {
     // появится уровень, здесь встанет фильтр.
     levels: null,
     // Через сколько дней пару можно показать повторно, если она была пройдена (Э).
-    repeatAfterDays: 30
+    repeatAfterDays: 30,
+    // Показываем ТОЛЬКО сверенные пары. Ложный друг — утверждение о факте, ошибка
+    // здесь учит неверному, а обнаружить её учащийся не может по определению.
+    // Пользователей уже трое, и цена ошибки умножается на всех.
+    requireVerified: true
   },
   caches: {
     // ЭВРИСТИКА. Раньше потолка у кэша мнемоник не было вовсе, и при цели
@@ -1706,6 +1711,19 @@ async function loadFalseFriends() {
 }
 let ffVersion = 0;
 
+// Вердикты сверки: копятся на устройстве, потом выгружаются в файл набора.
+// Так проверка становится общей для всех пользователей, а не только для того,
+// кто её делал.
+const FF_REVIEW_STORE = 'wordnaut-ff-review';
+function ffReview() {
+  try { return JSON.parse(localStorage.getItem(FF_REVIEW_STORE) || '{}'); } catch (e) { return {}; }
+}
+function ffReviewSet(en, verdict) {
+  const r = ffReview();
+  if (verdict === null) delete r[en]; else r[en] = verdict;
+  safeSet(FF_REVIEW_STORE, JSON.stringify(r));
+}
+
 const TRAP_STORE = 'wordnaut-traps';
 function trapLog() {
   try { return JSON.parse(localStorage.getItem(TRAP_STORE) || '[]'); } catch (e) { return []; }
@@ -1725,6 +1743,7 @@ function activeTraps() {
   for (const r of log) if (!r.ok) failedOf[r.en] = (failedOf[r.en] || 0) + 1;
 
   return ffPairs
+    .filter(p => !CFG.traps.requireVerified || p.src === 'verified')
     .filter(p => byEn[normalize(p.en)])
     .filter(p => !lv || !p.level || lv.indexOf(p.level) >= 0)
     .filter(p => {
@@ -2808,6 +2827,7 @@ document.getElementById('trapsEnabled').addEventListener('change', e => {
 document.getElementById('testEnabled').addEventListener('change', e => {
   setUserConfig('test', 'enabled', e.target.checked);
   renderTraps();
+  renderFfReview();
   renderTestHistory();
 });
 document.getElementById('browsePrev').onclick = () => browseStep(-1);
@@ -3330,11 +3350,73 @@ function renderTraps() {
   box.innerHTML = '<span class="muted-note" style="display:block;margin-bottom:8px">'
     + 'В наборе ' + ffPairs.length + ' пар, из них в твоей колоде ' + inDeck
     + ', готовы к показу ' + active
-    + (unverified ? ' · не сверено со словарём: ' + unverified : '') + '</span>'
+    + (unverified ? ' · <b style="color:var(--no)">не сверено со словарём: ' + unverified
+        + '</b>, такие пары не показываются' : '') + '</span>'
     + (rows ? '<table style="width:100%"><tr><td class="muted-note">слово</td>'
         + '<td class="muted-note" style="text-align:right">верно</td>'
         + '<td class="muted-note" style="text-align:right">ловушка</td></tr>' + rows + '</table>'
       : '<span class="muted-note">· разборов ещё не было</span>');
+}
+
+// Сверка набора: пары просматриваются подряд, вердикт копится на устройстве,
+// потом выгружается готовым файлом. Руками JSON править не нужно.
+function renderFfReview() {
+  const box = document.getElementById('ffReviewBox');
+  if (!ffPairs || !ffPairs.length) { box.innerHTML = ''; return; }
+  const unverified = ffPairs.filter(p => p.src !== 'verified');
+  const r = ffReview();
+  const decided = unverified.filter(p => r[p.en]).length;
+  if (!unverified.length) { box.innerHTML = '<span class="muted-note">· весь набор сверен</span>'; return; }
+
+  const rows = unverified.map(p => {
+    const v = r[p.en] || '';
+    const mark = (val, label) => '<button class="btn-ghost ff-mark" data-en="' + esc(p.en) + '" data-v="' + val + '"'
+      + (v === val ? ' style="border-color:var(--text);color:var(--text)"' : '') + '>' + label + '</button>';
+    return '<tr><td><b>' + esc(p.en) + '</b> <span class="muted-note">' + esc(p.level || '—') + '</span><br>'
+      + '<span class="muted-note">похоже на «' + esc(p.looks) + '»</span></td>'
+      + '<td>= ' + esc(p.en_means) + '<br><span class="muted-note">«' + esc(p.looks) + '» = ' + esc(p.ru_means) + '</span></td>'
+      + '<td style="text-align:right;white-space:nowrap">' + mark('verified', 'верно') + ' ' + mark('drop', 'убрать') + '</td></tr>';
+  }).join('');
+
+  box.innerHTML = '<span class="muted-note" style="display:block;margin-bottom:8px">'
+    + 'Сверка набора: просмотрено ' + decided + ' из ' + unverified.length + '</span>'
+    + '<table style="width:100%">' + rows + '</table>'
+    + '<div class="btn-row" style="justify-content:flex-end;margin-top:10px">'
+    + '<button class="btn-ghost" id="ffReset">Сбросить вердикты</button>'
+    + '<button class="btn-primary" id="ffExport"' + (decided ? '' : ' disabled') + '>Скачать сверенный набор</button></div>';
+
+  box.querySelectorAll('.ff-mark').forEach(b => {
+    b.onclick = () => {
+      const cur = ffReview()[b.dataset.en];
+      ffReviewSet(b.dataset.en, cur === b.dataset.v ? null : b.dataset.v);
+      renderFfReview();
+      renderTraps();
+    };
+  });
+  document.getElementById('ffReset').onclick = () => {
+    localStorage.removeItem(FF_REVIEW_STORE); renderFfReview(); renderTraps();
+  };
+  const exp = document.getElementById('ffExport');
+  if (exp) exp.onclick = exportFalseFriends;
+}
+
+// Выгружает набор с проставленными вердиктами: помеченные «верно» получают
+// src: "verified", помеченные «убрать» исключаются. Файл кладётся в data/ вместо
+// прежнего — тогда сверка работает у всех, а не только у того, кто её делал.
+function exportFalseFriends() {
+  const r = ffReview();
+  const pairs = ffPairs
+    .filter(p => r[p.en] !== 'drop')
+    .map(p => r[p.en] === 'verified' ? Object.assign({}, p, { src: 'verified' }) : p);
+  const out = { v: ffVersion + 1, l1: (data.profile && data.profile.l1) || 'ru',
+                note: 'Сверено вручную. src: verified — пара проверена по словарю.',
+                pairs: pairs };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'false-friends-' + out.l1 + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function renderTestHistory() {
@@ -3598,7 +3680,7 @@ nextCard();
 // ловушки становятся доступны сами. Нет файла или сети — ffPairs станет пустым,
 // и функция просто не включится.
 loadFalseFriends().then(() => {
-  if (document.getElementById('trapsBox')) renderTraps();
+  if (document.getElementById('trapsBox')) { renderTraps(); renderFfReview(); }
   if (!current) renderCard();     // экран «план выполнен» мог быть построен до загрузки
 });
 
