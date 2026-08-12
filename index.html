@@ -1307,16 +1307,27 @@ function load() {
       loadFailed = String(e && e.message || e);
       try {
         // Сохраняем нечитаемое как есть: пока копия цела, данные можно вернуть.
-        if (!localStorage.getItem(STORAGE_KEY + '-broken')) {
-          localStorage.setItem(STORAGE_KEY + '-broken', raw);
-        }
-      } catch (e2) { console.error('и копию сделать не вышло:', e2); }
+        const key = STORAGE_KEY + '-broken';
+        if (localStorage.getItem(key)) rescued = true;   // копия с прошлого раза
+        else { localStorage.setItem(key, raw); rescued = true; }
+      } catch (e2) {
+        console.error('копию сделать не вышло:', e2);
+        rescued = false;
+      }
     }
   }
   const d = defaults();
-  save(d);
+  // Затираем прежние данные ТОЛЬКО если копия цела. Иначе исходное остаётся
+  // на месте: испорченное, но восстановимое. Раньше при нехватке места копия
+  // не сохранялась, а save() всё равно записывал стартовую колоду поверх —
+  // и оригинал исчезал окончательно.
+  if (rescued !== false) save(d);
+  else console.error('Прежние данные НЕ перезаписаны: копия не сохранилась, оригинал цел');
   return d;
 }
+// null — читать было нечего; true — копия сделана; false — не удалось,
+// и тогда перезаписывать исходное нельзя.
+let rescued = null;
 // Признак того, что колода не прочиталась. Показывается в статистике: молчаливая
 // подмена стартовой колодой неотличима от «я ничего не учила».
 let loadFailed = null;
