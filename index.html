@@ -2557,6 +2557,24 @@ function demandOf(due, step, until) {
 // её размеру. Предел эту задачу не решает, а только обрезает — непроверенные
 // слова никуда не деваются, они просто не попадают в очередь. Поэтому
 // предупреждать надо заранее, а не в последние три дня.
+// Доля верных ответов по фактической истории колоды. Провал сбрасывает слово
+// в начало лестницы, поэтому каждая ошибка добавляет целый подъём заново.
+function accuracyRate() {
+  let seen = 0, lapses = 0;
+  for (const c of data.cards) { seen += c.seen || 0; lapses += c.lapses || 0; }
+  if (seen < 50) return null;           // слишком мало истории, чтобы утверждать
+  return Math.max(0.5, Math.min(1, (seen - lapses) / seen));
+}
+
+// Во сколько раз провалы поднимают спрос сверх детерминированной оценки.
+// Подгонка под измерение: 95% верных -> 1.01, 87% -> 1.16, 75% -> 1.48.
+// Коэффициент не зависит от размера колоды — проверено на 500, 1000 и 2000 словах.
+function failureInflation(acc) {
+  if (acc === null) return 1.16;        // нет истории — берём как при 87% верных
+  const miss = 1 - acc;
+  return 1 + 8 * miss * miss;
+}
+
 function examOutlook() {
   const exam = CFG.srs.examDate;
   if (!exam) return null;
@@ -2585,6 +2603,14 @@ function examOutlook() {
   }
 
   // Сколько слов вообще будет в обороте к дате
+  // Детерминированная оценка не знает про провалы, а каждый провал сбрасывает
+  // слово в начало лестницы. Без поправки предупреждение молчало при 2000 слов
+  // и спросе 14675 против ёмкости 16920 — то есть при 87% верных реальный спрос
+  // уже превышал ёмкость, а порог не срабатывал.
+  const acc = accuracyRate();
+  const inflation = failureInflation(acc);
+  const demandReal = Math.round(demand * inflation);
+
   const deck = inRotation.length + canEnter;
   // Нижняя граница: столько слов не получит даже одной проверки в финальном проходе.
   // Симуляция даёт результат ХУЖЕ (провалы отнимают места), поэтому «не меньше».
@@ -2593,7 +2619,13 @@ function examOutlook() {
   const daysToEnterAll = perDay > 0 ? Math.ceil(waiting / perDay) : Infinity;
 
   return { days, deck, waiting, canEnter, neverEnter, cap, capacity, demand,
-           unchecked, sweepDays, daysToEnterAll, until, over: demand > capacity };
+           demandReal, acc, inflation, unchecked, sweepDays, daysToEnterAll, until,
+           over: demandReal > capacity,
+           // Предупреждение, которое загорается только за 100%, бесполезно:
+           // реагировать уже поздно. Порог запаса ЭВРИСТИКА: при 85% ёмкости
+           // любое отклонение — болезнь, поездка, неудачная неделя — съедает остаток.
+           tight: demandReal > capacity * 0.85,
+           usage: capacity > 0 ? demandReal / capacity : 0 };
 }
 
 function fmtDate(ms) {
@@ -2609,7 +2641,11 @@ function renderOutlook() {
   rows.push(['До экзамена', o.days + ' дн · ' + fmtDate(o.until)]);
   rows.push(['Будет в обороте', o.deck + ' слов' + (o.waiting ? ' (ждут очереди ' + o.waiting + ')' : '')]);
   rows.push(['Ёмкость до даты', o.capacity + ' повторений при ' + o.cap + '/день']);
-  rows.push(['Потребуется', o.demand + ' повторений' + (o.over ? ' — БОЛЬШЕ ёмкости' : '')]);
+  rows.push(['Потребуется', o.demand + ' повторений без учёта провалов']);
+  rows.push(['С поправкой на провалы', o.demandReal + ' повторений'
+    + (o.acc === null ? ' (истории мало, взято 87% верных)' : ' (у тебя ' + Math.round(o.acc * 100) + '% верных)')]);
+  rows.push(['Занято ёмкости', Math.round(o.usage * 100) + '%'
+    + (o.over ? ' — НЕ ХВАТИТ' : (o.tight ? ' — ЗАПАСА ПОЧТИ НЕТ' : ''))]);
   rows.push(['Полный проход колоды', o.sweepDays + ' дн · последний начнётся ' + fmtDate(o.until - o.sweepDays * DAY)]);
   if (o.neverEnter > 0) {
     rows.push(['Не успеют войти вовсе', o.neverEnter + ' слов при норме ' + data.newPerDay + '/день'
@@ -2617,9 +2653,9 @@ function renderOutlook() {
   }
   if (o.unchecked > 0) rows.push(['НЕ БУДЕТ ПРОВЕРЕНО', 'не меньше ' + o.unchecked + ' слов']);
   // Действие, а не констатация: с какого дня добавлять новые уже бессмысленно
-  if (o.over || o.unchecked > 0) {
-    const room = Math.max(0, o.capacity - o.demand);
-    const perNew = Math.max(1, demandOf(Date.now(), 0, o.until));
+  if (o.tight || o.unchecked > 0) {
+    const room = Math.max(0, o.capacity - o.demandReal);
+    const perNew = Math.max(1, Math.round(demandOf(Date.now(), 0, o.until) * o.inflation));
     const fits = Math.floor(room / perNew);
     const d = data.newPerDay > 0 ? Math.floor(fits / data.newPerDay) : 0;
     rows.push(['Что делать', fits > 0
@@ -2628,7 +2664,7 @@ function renderOutlook() {
   }
   box.innerHTML = '<table style="width:100%">' + rows.map(r =>
     '<tr><td class="muted-note">' + r[0] + '</td><td style="text-align:right'
-    + (/БОЛЬШЕ|не меньше|остановить/.test(r[1]) ? ';color:var(--no)' : '') + '">' + esc(r[1]) + '</td></tr>').join('') + '</table>';
+    + (/НЕ ХВАТИТ|ЗАПАСА ПОЧТИ НЕТ|не меньше|остановить/.test(r[1]) ? ';color:var(--no)' : '') + '">' + esc(r[1]) + '</td></tr>').join('') + '</table>';
 }
 
 // Прогноз нагрузки. Считается по текущим срокам без симуляции: слово, у которого
