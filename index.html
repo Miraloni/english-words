@@ -1518,6 +1518,7 @@ function noteOutcome(card, quality, mode) {
   const log = outcomes();
   log.push({
     t: Date.now(),
+    w: normalize(card.en),                   // нужно, чтобы связать исход со словом
     iv: iv,                                  // сколько дней слово ждало проверки
     st: card.step || 0,
     m: mode || '',
@@ -2493,6 +2494,35 @@ function looksAdjective(ru) {
   return /(ый|ий|ой|ая|яя|ое|ее)\s*$/.test(String(ru || '').split(/[,;/]/)[0].trim());
 }
 
+// Каким словам мнемоника показывалась. Нужно, чтобы проверить опасение
+// о закреплении произношения: если у этих слов доля ошибок в режиме «на слух»
+// заметно выше, вопрос вернётся с данными, а не с рассуждением.
+const MN_SHOWN = 'wordnaut-mnshown';
+function mnShown() {
+  try { return JSON.parse(localStorage.getItem(MN_SHOWN) || '{}'); } catch (e) { return {}; }
+}
+function mnMarkShown(word, kind) {
+  const m = mnShown();
+  const k = normalize(word);
+  if (!m[k]) m[k] = { first: Date.now(), n: 0, kind: kind };
+  m[k].n++;
+  safeSet(MN_SHOWN, JSON.stringify(m));
+}
+
+// Доля ошибок в режиме «на слух» у слов с показанной мнемоникой и без неё.
+// Сравнивать имеет смысл только при сопоставимых выборках, поэтому числа видны.
+function listenBreakdown() {
+  const shown = mnShown();
+  const acc = { with: { n: 0, bad: 0 }, without: { n: 0, bad: 0 } };
+  for (const r of outcomes()) {
+    if (r.m !== 'listen' || !r.w) continue;
+    const b = shown[r.w] ? acc.with : acc.without;
+    b.n++;
+    if (!r.ok) b.bad++;
+  }
+  return acc;
+}
+
 const MN_STATS = 'wordnaut-mnstats';
 function mnStats() {
   try { return JSON.parse(localStorage.getItem(MN_STATS) || '{}'); } catch (e) { return {}; }
@@ -2507,6 +2537,26 @@ function mnNote(kind, modelAbstract, localAdj) {
   if (localAdj && !modelAbstract) st.disagree = (st.disagree || 0) + 1;
   if (localAdj) st.adjLocal = (st.adjLocal || 0) + 1;
   safeSet(MN_STATS, JSON.stringify(st));
+}
+
+// Созвучие заявлено, если в тексте есть серия заглавных: «АД-ВАЙС».
+function claimsSound(text) { return /[А-ЯЁ]{3,}/.test(String(text || '')); }
+
+// Мнемоника — крючок для памяти, а не образец произношения. Созвучие подбирается
+// по акустической близости, а не по транскрипции (И4 это прямо допускает), поэтому
+// «АД-ВАЙС» фонетически неточно и как крючок работает. Риск не в неточности,
+// а в закреплении: увидев написание тридцать раз, человек может начать так говорить.
+// Отсюда постоянная строка и явное подчинение звучащему слову.
+function hintBlock(text, kind) {
+  const label = kind === 'context'
+    ? 'Слово абстрактное, созвучие тут не помогает. Как это говорят:'
+    : 'Крючок для памяти';
+  const warn = (kind !== 'context' && claimsSound(text))
+    ? '<div class="muted-note" style="margin-top:6px">Созвучие приблизительное, по замыслу — '
+      + 'оно для запоминания, а не для произношения. Произношение слушай кнопкой выше.</div>'
+    : '';
+  return '<div class="muted-note" style="margin-bottom:4px">' + label + '</div>'
+    + esc(text) + warn;
 }
 
 async function fetchMnemonic(host, token, base, meaning) {
@@ -2537,11 +2587,8 @@ async function fetchMnemonic(host, token, base, meaning) {
     if (!d.text) return el.remove();
 
     el.className = 'rescue-hint';
-    // Сценарий употребления — не мнемоника, и подписан иначе: метод ключевого слова
-    // на абстрактном и прилагательных работает плохо (И4).
-    el.innerHTML = (d.kind === 'context'
-        ? '<span class="muted-note">Слово абстрактное, созвучие тут не помогает. Как это говорят:</span><br>'
-        : '') + esc(d.text);
+    el.innerHTML = hintBlock(d.text, d.kind);
+    mnMarkShown(base, d.kind);
     rescueHint = d.kind === 'keyword' ? d.text : '';
     mnRemember(base, d.text);
   } catch (e) { console.warn('мнемоника не пришла:', e); el.remove(); }
@@ -2659,7 +2706,7 @@ function renderRescue() {
       <button class="speak-btn" id="speakBtn" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
       <div class="translation">${esc(current.ru)}</div>
       <div class="rescue-count">провалено раз: ${current.lapses}</div>
-      ${hint ? `<div class="rescue-hint">${esc(hint)}</div>` : ''}
+      ${hint ? `<div class="rescue-hint">${hintBlock(hint, 'keyword')}</div>` : ''}
       <div id="imgHost" style="width:100%"></div>
       <div id="exHost" style="width:100%"></div>
     </div>
@@ -2667,6 +2714,7 @@ function renderRescue() {
 
   document.getElementById('speakBtn').onclick = () => speak(current.en);
   speak(current.en);
+  if (hint) mnMarkShown(base, 'keyword');
   if (current.example) showExample(document.getElementById('exHost'), true);
 
   const cfg = apiConfig();
@@ -3328,7 +3376,22 @@ function renderConfStats() {
   const mnSound = Object.values(mnMeta).filter(m => m.claims_sound).length;
   rows.push(['Прочитано автором, не сверено', authorRead + ' разборов близких слов'
     + (Object.keys(mnMeta).length ? ' и ' + Object.keys(mnMeta).length + ' мнемоник' : '')]);
-  if (mnSound) rows.push(['Из них заявляют созвучие', mnSound + ' мнемоник · произношение по словарю не сверялось']);
+  // Не «не сверялось» — это читалось бы как незакрытый долг. Сверка по словарю
+  // здесь проверяла бы не то свойство, ради которого мнемоника существует:
+  // созвучие подбирается по акустической близости, а не по транскрипции.
+  if (mnSound) rows.push(['Из них заявляют созвучие',
+    mnSound + ' мнемоник · созвучие приблизительно по замыслу, это решение, а не долг']);
+
+  // Опасение о закреплении произношения проверяется данными, а не рассуждением.
+  const lb = listenBreakdown();
+  if (lb.with.n + lb.without.n >= 20) {
+    const pct = b => b.n ? Math.round(100 * b.bad / b.n) : 0;
+    const gap = pct(lb.with) - pct(lb.without);
+    rows.push(['Ошибки на слух: с мнемоникой и без',
+      pct(lb.with) + '% из ' + lb.with.n + ' против ' + pct(lb.without) + '% из ' + lb.without.n
+      + (lb.with.n < 15 || lb.without.n < 15 ? ' · выборки малы, сравнивать рано'
+         : (gap >= 15 ? ' · разница заметна, стоит вернуться к вопросу' : ' · разницы не видно'))]);
+  }
   rows.push(['Школьное правило, сверка не нужна', rules + ' записей']);
   const mn = mnStats();
   const mnTotal = (mn.keyword || 0) + (mn.context || 0) + (mn.none || 0);
@@ -3348,7 +3411,7 @@ function renderConfStats() {
 
   box.innerHTML = '<table style="width:100%">' + rows.map(r =>
     '<tr><td class="muted-note">' + r[0] + '</td><td style="text-align:right'
-    + (/Прочитано автором/.test(r[0]) || /промпт не работает|назвала конкретными/.test(r[1])
+    + (/Прочитано автором/.test(r[0]) || /промпт не работает|назвала конкретными|разница заметна/.test(r[1])
         ? ';color:var(--no)' : '') + '">' + esc(r[1]) + '</td></tr>').join('')
     + '</table>';
 }
