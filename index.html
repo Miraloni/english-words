@@ -506,6 +506,7 @@
       <div class="stat-box"><div class="num" id="stTotal">0</div><div class="lbl">Всего слов</div></div>
       <div class="stat-box"><div class="num" id="stLearned">0</div><div class="lbl">В работе</div></div>
       <div class="stat-box"><div class="num" id="stDone">0</div><div class="lbl">Закреплено</div></div>
+      <div class="stat-box"><div class="num" id="stForget">0</div><div class="lbl">Забывались между занятиями</div></div>
       <div class="stat-box"><div class="num" id="stDue">0</div><div class="lbl">К повторению сейчас</div></div>
       <div class="stat-box"><div class="num" id="stStreak">0</div><div class="lbl">Дней подряд</div></div>
       <div class="stat-box"><div class="num" id="stLeech">0</div><div class="lbl">Западают</div></div>
@@ -514,7 +515,9 @@
     <div class="info-card" id="leechCard" hidden>
       <h3><svg class="ico"><use href="#i-alert"/></svg> Западающие слова</h3>
       <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.5">
-        Слова, которые ты провалила чаще всего. Число — сколько раз не вспомнила.
+        Слова, которые ты провалила чаще всего. Первое число — забывания между занятиями,
+        второе — все провалы, включая повторы внутри одного вечера. Сопротивляется
+        по-настоящему то, что забылось за сутки.
       </p>
       <table><tbody id="leechTable"></tbody></table>
       <div class="goal-row" style="margin-top:14px">
@@ -665,6 +668,7 @@
       <div class="modal-actions" style="margin-top:0">
         <button class="btn-ghost" id="exportBtn"><svg class="ico"><use href="#i-export"/></svg> Экспорт прогресса</button>
         <button class="btn-primary" id="restoreBtn"><svg class="ico"><use href="#i-import"/></svg> Восстановить из файла</button>
+        <button class="btn-ghost" id="diagBtn"><svg class="ico"><use href="#i-export"/></svg> Выгрузка для разбора</button>
         <input type="file" id="restoreFile" accept=".json" hidden />
       </div>
       <span class="import-status" id="restoreStatus" style="display:block;margin-top:10px"></span>
@@ -1442,6 +1446,11 @@ function grade(card, quality) {
     card.due = Date.now() + CFG.srs.typoReturnMin * 60 * 1000;
   } else if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
+    // Забывание засчитывается, только если слово отстояло сутки и больше.
+    // Внутри сессии карточка возвращается через минуту, и такие возвраты раздували
+    // счётчик: после перехода на «выход на дни только после ввода руками» слово,
+    // которое узнаётся, но не пишется, наматывало пять провалов за один вечер.
+    if ((card.interval || 0) >= 1) card.forgets = (card.forgets || 0) + 1;
     // Готовим подсказку за провал до порога. Пробуем на каждом провале начиная
     // с «порог минус один», пока не получится: одной попытки не хватало, если
     // в тот момент не было токена или сети.
@@ -2807,7 +2816,8 @@ function renderBrowse() {
       <button class="speak-btn" id="browseSpeak" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
       <div class="translation">${esc(c.ru)}</div>
       ${c.example ? `<div class="example">${esc(c.example)}</div>` : ''}
-      <div class="muted-note">показов: ${c.seen || 0} · провалов: ${c.lapses || 0}</div>
+      <div class="muted-note">показов: ${c.seen || 0} · забываний: ${c.forgets || 0}
+        <span style="opacity:.6">(всего провалов ${c.lapses || 0})</span></div>
     </div>`;
   document.getElementById('browseSpeak').onclick = () => speak(c.en);
 }
@@ -2824,6 +2834,7 @@ document.getElementById('testEnabled').addEventListener('change', e => {
   setUserConfig('test', 'enabled', e.target.checked);
   renderTestHistory();
 });
+document.getElementById('diagBtn').onclick = exportDiagnostics;
 document.getElementById('browsePrev').onclick = () => browseStep(-1);
 document.getElementById('browseNext').onclick = () => browseStep(1);
 document.getElementById('browseModal').addEventListener('click', e => {
@@ -3553,6 +3564,36 @@ function renderCapLog() {
     + '<td class="muted-note" style="text-align:right">не попало</td></tr>' + rows + '</table>';
 }
 
+// Журналы живут отдельно от прогресса и в экспорт не входят: они привязаны
+// к устройству. Но без них нельзя ответить на вопрос вроде «сколько провалов было
+// внутри сессии»: журнал лежит на телефоне, а разбор идёт на другой машине.
+// Отдельная выгрузка — без переводов колоды и без токена, только измерения.
+function exportDiagnostics() {
+  const out = {
+    сделано: new Date().toISOString(),
+    исходы: outcomes(),
+    опечатки: (() => { try { return JSON.parse(localStorage.getItem(TYPO_LOG) || '[]'); } catch (e) { return []; } })(),
+    ловушки: trapLog(),
+    тесты: testHistory(),
+    подсказки: mnStats(),
+    мнемоникаПоказана: mnShown(),
+    упорыВПредел: data.capLog || [],
+    калибровка: calib(),
+    настройки: { newPerDay: data.newPerDay, dailyGoal: data.dailyGoal,
+                 leechThreshold: data.leechThreshold, config: data.config },
+    сводкаКолоды: data.cards.map(c => ({
+      en: c.en, step: c.step, interval: c.interval, seen: c.seen,
+      lapses: c.lapses, forgets: c.forgets, origin: c.origin
+    }))
+  };
+  const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wordnaut-diag-' + today() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function renderStats() {
   const warn = document.getElementById('storageWarn');
   if (loadFailed && warn) {
@@ -3566,6 +3607,7 @@ function renderStats() {
   document.getElementById('stLearned').textContent = inWorkCards(data).length + ' / ' + CFG.load.maxInWork;
   document.getElementById('stDone').textContent = data.cards.filter(c => (c.interval || 0) >= CFG.srs.graduatedDays).length;
   document.getElementById('stDue').textContent = dueCards().length;
+  document.getElementById('stForget').textContent = data.cards.filter(c => (c.forgets || 0) > 0).length;
   document.getElementById('stStreak').textContent = data.streak;
   document.getElementById('goalInput').value = data.dailyGoal;
   document.getElementById('newPerDayInput').value = data.newPerDay;
@@ -3584,10 +3626,14 @@ function renderStats() {
   updatePlanHint();
 }
 
+// Порог мнемоники остаётся на ОБЩЕМ числе провалов — это решено: слово, которое
+// не даётся даже внутри вечера, подсказки заслуживает. Но список сортируется
+// по забываниям между занятиями: сопротивляется по-настоящему то, что забылось
+// за сутки, а не то, что не набралось с третьей попытки подряд.
 function leechCards() {
   return data.cards
     .filter(c => (c.lapses || 0) >= data.leechThreshold)
-    .sort((a, b) => b.lapses - a.lapses);
+    .sort((a, b) => ((b.forgets || 0) - (a.forgets || 0)) || (b.lapses - a.lapses));
 }
 
 function renderLeeches() {
@@ -3595,7 +3641,8 @@ function renderLeeches() {
   document.getElementById('stLeech').textContent = list.length;
   document.getElementById('leechCard').hidden = list.length === 0;
   document.getElementById('leechTable').innerHTML = list.slice(0, 30).map(c =>
-    `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td><td style="text-align:right">${c.lapses}×</td></tr>`
+    `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td>
+       <td style="text-align:right">${c.forgets || 0}× <span class="muted-note">из ${c.lapses}</span></td></tr>`
   ).join('');
 }
 function updatePlanHint() {
