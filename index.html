@@ -456,7 +456,7 @@
     try {
       var t = localStorage.getItem('ew-theme');
       if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
-    } catch (e) {}
+    } catch (e) { console.warn('тема не прочиталась:', e); }
   })();
 </script>
 
@@ -1299,12 +1299,27 @@ function load() {
       if ((d.schema || 0) < 3) parkExcess(d);
       d.schema = 4;
       return d;
-    } catch (e) {}
+    } catch (e) {
+      // Раньше здесь стоял голый catch, и любая ошибка миграции молча роняла
+      // пользователя в стартовую колоду, а следующий save() затирал оригинал.
+      // Тихая потеря всего прогресса выглядела бы как «приложение сбросилось».
+      console.error('Не удалось прочитать сохранённые данные:', e);
+      loadFailed = String(e && e.message || e);
+      try {
+        // Сохраняем нечитаемое как есть: пока копия цела, данные можно вернуть.
+        if (!localStorage.getItem(STORAGE_KEY + '-broken')) {
+          localStorage.setItem(STORAGE_KEY + '-broken', raw);
+        }
+      } catch (e2) { console.error('и копию сделать не вышло:', e2); }
+    }
   }
   const d = defaults();
   save(d);
   return d;
 }
+// Признак того, что колода не прочиталась. Показывается в статистике: молчаливая
+// подмена стартовой колодой неотличима от «я ничего не учила».
+let loadFailed = null;
 // Подтягивает карточки, ушедшие за потолок. Выполняется при каждой загрузке,
 // поэтому по мере приближения экзамена расписание уплотняется само.
 // Операция идемпотентна: это взятие минимума, повторный запуск ничего не меняет.
@@ -1620,9 +1635,10 @@ function markSession() {
   const cfg = apiConfig();
   if (!cfg || !navigator.onLine) return;
   let last = '';
-  try { last = localStorage.getItem(SESSION_STORE) || ''; } catch (e) {}
+  try { last = localStorage.getItem(SESSION_STORE) || ''; }
+  catch (e) { console.warn('отметка занятия не прочиталась:', e); }
   if (last === today()) return;
-  try { localStorage.setItem(SESSION_STORE, today()); } catch (e) {}
+  safeSet(SESSION_STORE, today());
   apiCall({ url: cfg.url.replace(/\/+$/, ''), token: cfg.token }, '/session').catch(() => {});
 }
 
@@ -1739,6 +1755,26 @@ function ffReviewSet(en, verdict) {
   safeSet(FF_REVIEW_STORE, JSON.stringify(r));
 }
 
+// Отпечаток утверждения. Тот же алгоритм, что в verify-pairs.py (FNV-1a):
+// штамп проверки привязан к содержимому пары, а не стоит отдельным полем.
+// Правка текста сбрасывает штамп сама — иначе получается verified от старого
+// текста, что уже однажды и вышло.
+function claimHash(p) {
+  const src = [p.en || '', p.looks || '', p.en_means || '', p.ru_means || ''].join('\u0000');
+  const bytes = new TextEncoder().encode(src);
+  let h = 0x811c9dc5;
+  for (const b of bytes) {
+    h ^= b;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return ('0000000' + h.toString(16)).slice(-8);
+}
+
+// Пара считается сверенной, только если отпечаток совпадает с текстом.
+function isVerified(p) {
+  return p.src === 'verified' && p.checked && p.checked.hash === claimHash(p);
+}
+
 const TRAP_STORE = 'wordnaut-traps';
 function trapLog() {
   try { return JSON.parse(localStorage.getItem(TRAP_STORE) || '[]'); } catch (e) { return []; }
@@ -1758,7 +1794,7 @@ function activeTraps() {
   for (const r of log) if (!r.ok) failedOf[r.en] = (failedOf[r.en] || 0) + 1;
 
   return ffPairs
-    .filter(p => !CFG.traps.requireVerified || p.src === 'verified')
+    .filter(p => !CFG.traps.requireVerified || isVerified(p))
     .filter(p => byEn[normalize(p.en)])
     .filter(p => !lv || !p.level || lv.indexOf(p.level) >= 0)
     .filter(p => {
@@ -2511,7 +2547,7 @@ function logTypo(en, typed, rule) {
     const log = JSON.parse(localStorage.getItem(TYPO_LOG) || '[]');
     log.push({ t: Date.now(), en, typed, rule });
     safeSet(TYPO_LOG, JSON.stringify(log.slice(-CFG.caches.typoLog)));
-  } catch (e) {}
+  } catch (e) { console.warn('прощение не записалось в лог:', e); }
 }
 
 // Верный ответ, набранный быстро и без правок, — это узнавание, а не припоминание.
@@ -3419,12 +3455,15 @@ function renderTraps() {
       + '<td style="text-align:right">' + byEn[en].ok + ' из ' + byEn[en].n + '</td>'
       + '<td style="text-align:right' + (byEn[en].trapped ? ';color:var(--no)' : '') + '">'
       + (byEn[en].trapped ? 'попалась ' + byEn[en].trapped + '×' : '—') + '</td></tr>').join('');
-  const unverified = ffPairs.filter(p => p.src !== 'verified').length;
+  const stale = ffPairs.filter(p => p.src === 'verified' && !isVerified(p)).length;
+  const unverified = ffPairs.filter(p => !isVerified(p)).length;
   box.innerHTML = '<span class="muted-note" style="display:block;margin-bottom:8px">'
     + 'В наборе ' + ffPairs.length + ' пар, из них в твоей колоде ' + inDeck
     + ', готовы к показу ' + active
     + (unverified ? ' · <b style="color:var(--no)">не сверено со словарём: ' + unverified
-        + '</b>, такие пары не показываются' : '') + '</span>'
+        + '</b>, такие пары не показываются' : '')
+    + (stale ? ' · <b style="color:var(--no)">штамп не совпал с текстом: ' + stale + '</b>' : '')
+    + '</span>'
     + (rows ? '<table style="width:100%"><tr><td class="muted-note">слово</td>'
         + '<td class="muted-note" style="text-align:right">верно</td>'
         + '<td class="muted-note" style="text-align:right">ловушка</td></tr>' + rows + '</table>'
@@ -3436,7 +3475,7 @@ function renderTraps() {
 function renderFfReview() {
   const box = document.getElementById('ffReviewBox');
   if (!ffPairs || !ffPairs.length) { box.innerHTML = ''; return; }
-  const unverified = ffPairs.filter(p => p.src !== 'verified');
+  const unverified = ffPairs.filter(p => !isVerified(p));
   const r = ffReview();
   const decided = unverified.filter(p => r[p.en]).length;
   if (!unverified.length) { box.innerHTML = '<span class="muted-note">· весь набор сверен</span>'; return; }
@@ -3529,6 +3568,12 @@ function renderCapLog() {
 
 function renderStats() {
   const warn = document.getElementById('storageWarn');
+  if (loadFailed && warn) {
+    warn.hidden = false;
+    warn.textContent = 'Сохранённые данные не прочитались (' + loadFailed + '). '
+      + 'Колода начата заново, а прежняя сохранена в english-words-v1-broken — не очищай хранилище, её можно вернуть.';
+    return;
+  }
   if (warn) { warn.hidden = !storageWarned; if (storageWarned) warn.textContent = STORAGE_WARN_TEXT; }
   document.getElementById('stTotal').textContent = data.cards.length;
   document.getElementById('stLearned').textContent = inWorkCards(data).length + ' / ' + CFG.load.maxInWork;

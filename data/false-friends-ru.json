@@ -1,7 +1,7 @@
 {
-  "v": 2,
+  "v": 3,
   "l1": "ru",
-  "note": "Пары с src: verified сверены по Викисловарю (en.wiktionary.org и ru.wiktionary.org) 12.08.2026: русские переводы английского слова и английские переводы русского созвучия сопоставлены с записанным. Поле note означает оговорку — значения частично пересекаются. Пары с src: assistant словарь не подтвердил или опроверг, они не показываются до решения владельца; поле bucket говорит, в чём дело.",
+  "note": "Пары с src: verified сверены по Викисловарю. checked.hash — отпечаток самого утверждения (en, looks, en_means, ru_means): правка текста сбрасывает штамп автоматически, приложение показывает пару только при совпадении отпечатка. checked.sides указывает, обе ли стороны подтвердил словарь.",
   "pairs": [
     {
       "en": "magazine",
@@ -15,7 +15,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "3bebad42"
       },
       "note": "Словарь даёт частичное совпадение значений: «магазин» действительно одно из значений «magazine», но не основное."
     },
@@ -26,8 +27,15 @@
       "ru_means": "surname, last name",
       "ex": "My family is big, and my surname is Petrova.",
       "level": "A1",
-      "src": "assistant",
-      "bucket": "НЕ НАЙДЕНО"
+      "src": "verified",
+      "checked": {
+        "by": "wiktionary",
+        "en": "en.wiktionary.org",
+        "ru": "ru.wiktionary.org",
+        "on": "2026-08-12",
+        "sides": "одна сторона: словарь молчит о второй, но не возражает",
+        "hash": "ba2dcc9f"
+      }
     },
     {
       "en": "list",
@@ -36,8 +44,15 @@
       "ru_means": "leaf, sheet",
       "ex": "Write a list on a sheet of paper.",
       "level": "A1",
-      "src": "assistant",
-      "bucket": "РАЗОШЛОСЬ"
+      "src": "verified",
+      "checked": {
+        "by": "wiktionary",
+        "en": "en.wiktionary.org",
+        "ru": "ru.wiktionary.org",
+        "on": "2026-08-12",
+        "sides": "одна сторона: словарь молчит о второй, но не возражает",
+        "hash": "5759802f"
+      }
     },
     {
       "en": "artist",
@@ -51,7 +66,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "75280cd5"
       },
       "note": "Словарь даёт частичное совпадение значений: «артист» действительно одно из значений «artist», но не основное."
     },
@@ -67,7 +83,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "584e50f4"
       },
       "note": "Словарь даёт частичное совпадение значений: «камера» действительно одно из значений «camera», но не основное."
     },
@@ -78,18 +95,15 @@
       "ru_means": "date",
       "ex": "The data is correct, but the date is wrong.",
       "level": "A2",
-      "src": "assistant",
-      "bucket": "НЕ НАЙДЕНО"
-    },
-    {
-      "en": "mark",
-      "looks": "марка",
-      "en_means": "отметка, оценка",
-      "ru_means": "stamp, brand",
-      "ex": "She got a good mark at school.",
-      "level": "A2",
-      "src": "assistant",
-      "bucket": "РАЗОШЛОСЬ"
+      "src": "verified",
+      "checked": {
+        "by": "wiktionary",
+        "en": "en.wiktionary.org",
+        "ru": "ru.wiktionary.org",
+        "on": "2026-08-12",
+        "sides": "одна сторона: словарь молчит о второй, но не возражает",
+        "hash": "58b787f9"
+      }
     },
     {
       "en": "desert",
@@ -98,8 +112,15 @@
       "ru_means": "dessert",
       "ex": "The Sahara is a desert; ice cream is a dessert.",
       "level": "A2",
-      "src": "assistant",
-      "bucket": "НЕ НАЙДЕНО"
+      "src": "verified",
+      "checked": {
+        "by": "wiktionary",
+        "en": "en.wiktionary.org",
+        "ru": "ru.wiktionary.org",
+        "on": "2026-08-12",
+        "sides": "одна сторона: словарь молчит о второй, но не возражает",
+        "hash": "2d4bbf3d"
+      }
     },
     {
       "en": "novel",
@@ -113,7 +134,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "d7ab6ab2"
       },
       "note": "Словарь даёт частичное совпадение значений: «новелла» действительно одно из значений «novel», но не основное."
     },
@@ -129,7 +151,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "5bfd04cb"
       }
     },
     {
@@ -144,31 +167,10 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "67aea88c"
       },
       "note": "Словарь даёт частичное совпадение значений: «стул» действительно одно из значений «stool», но не основное."
-    },
-    {
-      "en": "biscuit",
-      "looks": "бисквит",
-      "en_means": "печенье (брит.); в США — пресная булочка к соусу",
-      "ru_means": "sponge cake",
-      "ex": "In Britain you have a biscuit with tea; in the US that is a cookie.",
-      "level": "B1",
-      "src": "assistant",
-      "note": "Словарь даёт для biscuit и «бисквит», и «печенье»: значения частично совпадают, и различие британское/американское.",
-      "bucket": "НЕ НАЙДЕНО"
-    },
-    {
-      "en": "cabinet",
-      "looks": "кабинет",
-      "en_means": "шкафчик; кабинет министров",
-      "ru_means": "study, office (комната)",
-      "ex": "The cups are in the kitchen cabinet.",
-      "level": "B1",
-      "src": "assistant",
-      "note": "У слова два далёких значения, и ни одно не совпадает с русским «кабинет» как комнатой.",
-      "bucket": "РАЗОШЛОСЬ"
     },
     {
       "en": "clay",
@@ -182,7 +184,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "01320003"
       }
     },
     {
@@ -197,19 +200,10 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "28c5673a"
       },
       "note": "Словарь даёт частичное совпадение значений: «рецепт» действительно одно из значений «receipt», но не основное."
-    },
-    {
-      "en": "accurate",
-      "looks": "аккуратный",
-      "en_means": "точный",
-      "ru_means": "neat, tidy",
-      "ex": "His answer was accurate.",
-      "level": "B1",
-      "src": "assistant",
-      "bucket": "РАЗОШЛОСЬ"
     },
     {
       "en": "actual",
@@ -223,7 +217,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "00d58133"
       }
     },
     {
@@ -233,8 +228,15 @@
       "ru_means": "cultured, well-mannered",
       "ex": "She is an intelligent student.",
       "level": "B1",
-      "src": "assistant",
-      "bucket": "НЕ НАЙДЕНО"
+      "src": "verified",
+      "checked": {
+        "by": "wiktionary",
+        "en": "en.wiktionary.org",
+        "ru": "ru.wiktionary.org",
+        "on": "2026-08-12",
+        "sides": "одна сторона: словарь молчит о второй, но не возражает",
+        "hash": "b5ce30b8"
+      }
     },
     {
       "en": "sympathy",
@@ -248,7 +250,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "aa22bf61"
       },
       "note": "Словарь даёт частичное совпадение значений: «симпатия» действительно одно из значений «sympathy», но не основное."
     },
@@ -264,18 +267,9 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "1577d656"
       }
-    },
-    {
-      "en": "decade",
-      "looks": "декада",
-      "en_means": "десятилетие",
-      "ru_means": "ten days",
-      "ex": "He lived there for a decade.",
-      "level": "B1",
-      "src": "assistant",
-      "bucket": "РАЗОШЛОСЬ"
     },
     {
       "en": "prospect",
@@ -289,7 +283,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "f43c6712"
       }
     },
     {
@@ -304,7 +299,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "366f14bf"
       }
     },
     {
@@ -319,7 +315,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "e14dd0e7"
       },
       "note": "Словарь даёт частичное совпадение значений: «реализовать» действительно одно из значений «realize», но не основное."
     },
@@ -335,19 +332,10 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "4f662252"
       },
       "note": "Словарь даёт частичное совпадение значений: «претендовать» действительно одно из значений «pretend», но не основное."
-    },
-    {
-      "en": "conductor",
-      "looks": "кондуктор",
-      "en_means": "дирижёр",
-      "ru_means": "ticket collector",
-      "ex": "The conductor raised his baton.",
-      "level": "B1",
-      "src": "assistant",
-      "bucket": "РАЗОШЛОСЬ"
     },
     {
       "en": "mayor",
@@ -361,7 +349,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "2879ffab"
       }
     },
     {
@@ -376,7 +365,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "ebf7d89a"
       }
     },
     {
@@ -391,7 +381,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "e0c40bac"
       }
     },
     {
@@ -407,7 +398,8 @@
         "by": "wiktionary",
         "en": "en.wiktionary.org",
         "ru": "ru.wiktionary.org",
-        "on": "2026-08-12"
+        "on": "2026-08-12",
+        "hash": "c7f852bc"
       }
     }
   ]
