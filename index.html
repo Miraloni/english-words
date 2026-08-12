@@ -491,6 +491,7 @@
       <input type="file" id="importFile" accept=".json,.csv,.txt,.tsv" hidden />
       <span class="import-status" id="importStatus"></span>
     </div>
+    <div id="pendingBox" hidden></div>
     <input class="search" id="search" placeholder="Поиск по словам" />
     <table>
       <thead><tr><th>Слово</th><th>Перевод</th><th>Статус</th><th></th></tr></thead>
@@ -1195,6 +1196,14 @@ function newCard(en, ru, example) {
     en, ru, example: example || '',
     step: 0, interval: 0,   // step — сколько ступеней лестницы пройдено
     lastSeen: null,         // когда последний раз оценивалось; ключ выборки при упоре в предел
+    // Откуда взялся перевод. 'own' — введён человеком, 'model' — предложен моделью
+    // при разборе ошибки, 'unknown' — карточки, заведённые до появления этого поля.
+    // Врать в сторону надёжности хуже, чем признать незнание, поэтому старым
+    // карточкам ставится именно 'unknown', а не 'own'.
+    origin: 'own',
+    // Перевод от модели — утверждение о языке, которое человек проверить не может.
+    // Пока не подтверждён, карточка в очередь не попадает.
+    confirmed: true,
     due: null,        // null = новое слово
     introduced: false,
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
@@ -1277,6 +1286,9 @@ function load() {
         delete c.reps;
         delete c.lastMode;   // писалось, но никогда не читалось
         if (c.lastSeen === undefined) c.lastSeen = null;
+        // Задним числом происхождение не восстановить: поля не было.
+        if (c.origin === undefined) c.origin = 'unknown';
+        if (c.confirmed === undefined) c.confirmed = true;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
         if (c.prepAt === undefined) c.prepAt = null;
         if (c.prepOk === undefined) c.prepOk = false;
@@ -1382,7 +1394,10 @@ function dueCards() {
   const now = Date.now();
   return data.cards.filter(c => c.due !== null && c.due <= now);
 }
-function newCards() { return data.cards.filter(c => !c.introduced); }
+function newCards() { return data.cards.filter(c => !c.introduced && c.confirmed !== false); }
+
+// Карточки, ждущие подтверждения перевода. В очередь не идут вовсе.
+function pendingCards() { return data.cards.filter(c => c.confirmed === false); }
 
 // Слова, которые сейчас требуют внимания: начатые и ещё не закреплённые.
 function inWorkCards(d) {
@@ -2254,9 +2269,15 @@ function offerNewCard(box, word) {
   btn.textContent = '+ В колоду';
   btn.onclick = () => {
     if (known()) { row.textContent = 'Уже в колоде'; return; }
-    data.cards.push(newCard(en, word.ru, word.example || ''));
+    // Перевод предложен моделью, а не взят из словаря. Раньше карточка сразу
+    // уходила в расписание, и возможная выдумка заучивалась по повторениям.
+    // Теперь она ждёт подтверждения и до него в очередь не попадает.
+    const card = newCard(en, word.ru, word.example || '');
+    card.origin = 'model';
+    card.confirmed = false;
+    data.cards.push(card);
     save(data);
-    row.textContent = 'Добавлено в колоду: ' + en;
+    row.textContent = 'Отложено на проверку: ' + en + ' — подтверди в «Словах»';
   };
   row.appendChild(label);
   row.appendChild(btn);
@@ -2288,6 +2309,15 @@ function appendAi(box, text) {
   div.className = 'mistake-ai';
   div.textContent = text;
   box.appendChild(div);
+  // Разбор — это утверждение о языке, а не пересказ того, что человек видит.
+  // Проверить его на своём уровне он не может, поэтому подпись прямая:
+  // не «сгенерировано ИИ», а что именно с этим не так.
+  const note = document.createElement('div');
+  note.className = 'muted-note';
+  note.style.cssText = 'margin-top:6px';
+  note.textContent = 'Объяснение составила языковая модель — здесь возможны неточности. '
+    + 'Если что-то расходится с учебником, верь учебнику.';
+  box.appendChild(note);
 }
 
 async function requestAi(box, given, card) {
@@ -2882,14 +2912,17 @@ document.addEventListener('keydown', e => {
 
 //============ Вкладка «Слова» ============
 function renderWords() {
+  renderPending();
   const q = document.getElementById('search').value.toLowerCase();
   const tbody = document.getElementById('wordsTable');
   const rows = data.cards
     .filter(c => c.en.toLowerCase().includes(q) || c.ru.toLowerCase().includes(q))
     .map(c => {
-      const status = !c.introduced
-        ? '<span class="badge new">новое</span>'
-        : '<span class="badge">ступень ' + (c.step || 0) + '</span>';
+      const status = c.confirmed === false
+        ? '<span class="badge new">ждёт проверки</span>'
+        : !c.introduced
+          ? '<span class="badge new">новое</span>'
+          : '<span class="badge">ступень ' + (c.step || 0) + '</span>';
       return `<tr>
         <td>${esc(c.en)}</td>
         <td>${esc(c.ru)}</td>
@@ -3318,6 +3351,46 @@ function renderRetention() {
     + '<td class="muted-note" style="text-align:right">проверок</td></tr>' + rows + '</table>'
     + '<span class="muted-note" style="display:block;margin-top:8px">Всего наблюдений: ' + log.length
     + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '') + '</span>';
+}
+
+// Карточки с переводом от модели ждут явного действия. Не галочка по умолчанию:
+// перевод — утверждение о языке, и подтвердить его должен человек, а не тишина.
+function renderPending() {
+  const box = document.getElementById('pendingBox');
+  const list = pendingCards();
+  if (!list.length) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<div class="info-card" style="margin-bottom:14px">'
+    + '<h3><svg class="ico"><use href="#i-spark"/></svg> Ждут проверки перевода</h3>'
+    + '<p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.5">'
+    + 'Эти слова предложила модель при разборе ошибки. Перевод может быть неточным, '
+    + 'а проверить его на слух нельзя — поэтому в занятия они не идут, пока ты не подтвердишь. '
+    + 'Можно исправить перевод прямо здесь.</p>'
+    + '<table style="width:100%">' + list.map(c =>
+        '<tr><td style="width:30%"><b>' + esc(c.en) + '</b></td>'
+        + '<td><input class="pending-ru" data-id="' + esc(c.id) + '" value="' + esc(c.ru) + '" style="width:100%" /></td>'
+        + '<td style="text-align:right;white-space:nowrap">'
+        + '<button class="btn-ghost pending-ok" data-id="' + esc(c.id) + '">Верно, учить</button> '
+        + '<button class="btn-ghost pending-no danger" data-id="' + esc(c.id) + '">Удалить</button>'
+        + '</td></tr>').join('') + '</table></div>';
+
+  box.querySelectorAll('.pending-ok').forEach(b => b.onclick = () => {
+    const c = data.cards.find(x => x.id === b.dataset.id);
+    if (!c) return;
+    const field = box.querySelector('.pending-ru[data-id="' + c.id + '"]');
+    const ru = field.value.trim();
+    if (!ru) { field.focus(); return; }
+    // Если перевод исправлен рукой — происхождение уже не модельное.
+    if (ru !== c.ru) { c.ru = ru; c.origin = 'own'; }
+    c.confirmed = true;
+    save(data);
+    renderPending(); renderWords(); nextCard();
+  });
+  box.querySelectorAll('.pending-no').forEach(b => b.onclick = () => {
+    data.cards = data.cards.filter(x => x.id !== b.dataset.id);
+    save(data);
+    renderPending(); renderWords();
+  });
 }
 
 function renderTraps() {
