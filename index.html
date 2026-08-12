@@ -547,6 +547,19 @@
       <span class="muted-note" id="ladderHint" style="flex-basis:100%"></span>
     </div>
 
+    <div class="goal-row">
+      Предел повторений в день:
+      <input type="number" id="capInput" min="10" max="1000" step="10" style="width:100px" />
+      <span class="muted-note" id="capHint"></span>
+    </div>
+
+    <h3 class="section-label">Нагрузка вперёд</h3>
+    <p class="muted-note" style="margin:0 0 10px">
+      Грубая оценка по текущим интервалам: сколько повторений придёт в каждую неделю,
+      если ничего не проваливать. Провалы добавят сверху, поэтому это нижняя граница.
+    </p>
+    <table id="forecastTable" style="width:100%"></table>
+
     <h3 class="section-label">Настройки</h3>
     <div class="goal-row">
       Дневная цель (повторений):
@@ -710,7 +723,14 @@ const CONFIG_DEFAULTS = {
     // и при цели в 20 повторений за месяц не выучивается ни одного слова.
     maxInWork: 150,
     // ЭВРИСТИКА: новых слов в день по умолчанию.
-    newPerDay: 40
+    newPerDay: 40,
+    // Потолок повторений за сутки. ЭВРИСТИКА и величина про время человека,
+    // а не про размер колоды: перед экзаменом потолок интервала сжимается до
+    // суток, поэтому просроченной становится ВСЯ колода, и пик равен её размеру
+    // независимо от того, 600 в ней слов или 4000. Отношение пика к спокойному
+    // дню при этом постоянно — около 7×, свойство конструкции, а не колоды.
+    // 120 повторений — это примерно 20-25 минут; проверяется только практикой.
+    dailyReviewCap: 120
   },
   caches: {
     // ЭВРИСТИКА. Раньше потолка у кэша мнемоник не было вовсе, и при цели
@@ -1056,6 +1076,7 @@ function newCard(en, ru, example) {
     id: 'c' + Math.random().toString(36).slice(2, 9),
     en, ru, example: example || '',
     step: 0, interval: 0,   // step — сколько ступеней лестницы пройдено
+    lastSeen: null,         // когда последний раз оценивалось; ключ выборки при упоре в предел
     due: null,        // null = новое слово
     introduced: false,
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
@@ -1072,7 +1093,6 @@ function newCard(en, ru, example) {
     rescuedAt: null,       // при скольких провалах последний раз показывали спасательный экран
     prepAt: null,          // при скольких провалах последний раз пробовали подготовить подсказку
     prepOk: false,         // получилось ли; если нет — пробуем снова на следующем провале
-    lastMode: null
   };
 }
 
@@ -1135,9 +1155,10 @@ function load() {
           for (let i = 0; i < L.length; i++) if (L[i] <= (c.interval || 0)) st = i + 1;
           c.step = st;
         }
-        delete c.ease;   // мёртвого поля не оставляем
+        delete c.ease;   // мёртвых полей не оставляем
         delete c.reps;
-        if (c.lastMode === undefined) c.lastMode = null;
+        delete c.lastMode;   // писалось, но никогда не читалось
+        if (c.lastSeen === undefined) c.lastSeen = null;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
         if (c.prepAt === undefined) c.prepAt = null;
         if (c.prepOk === undefined) c.prepOk = false;
@@ -1145,7 +1166,7 @@ function load() {
       clampIntervals(d);
       // Разовая парковка: в оборот успела войти вся колода. Выполняется один раз,
       // дальше поток новых слов сдерживает потолок в pickCard.
-      if ((d.schema || 0) < 3) { d.parked = parkExcess(d); }
+      if ((d.schema || 0) < 3) parkExcess(d);
       d.schema = 4;
       return d;
     } catch (e) {}
@@ -1262,16 +1283,55 @@ function parkExcess(d) {
   return park.length;
 }
 
+// Сколько повторений уже сделано сегодня (счётчик сбрасывается по дате).
+function sameDay(a, b) {
+  const x = new Date(a), y = new Date(b);
+  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
+}
+
+function reviewsDoneToday() {
+  return data.reviewsDate === today() ? (data.reviewsToday || 0) : 0;
+}
+
+// Порядок выборки, когда просроченных больше дневного предела.
+//
+// Наивный «сначала самые слабые» разоряет хвост: слово без провалов никогда
+// не поднимется наверх. На 2000 слов и пределе 150 такой порядок оставляет
+// 1262 слова непроверенными за две недели до экзамена, тогда как выборка
+// по давности — ноль. Поэтому главный ключ — давность проверки, а слабость
+// работает только при равной давности. Это и есть гарантия, что слово,
+// ни разу не проверенное, идёт вперёд слова, проверенного дважды.
+function byCoverage(a, b) {
+  const la = a.lastSeen === null || a.lastSeen === undefined ? -1 : a.lastSeen;
+  const lb = b.lastSeen === null || b.lastSeen === undefined ? -1 : b.lastSeen;
+  return (la - lb) || ((b.lapses || 0) - (a.lapses || 0)) || (a.due - b.due);
+}
+
 function pickCard() {
   const due = dueCards().sort((a, b) => a.due - b.due);
   // 1) заучивание идёт вперёд повторений. Провал ставит слову срок «через минуту»,
   // но этот срок позже, чем у просроченных, и в общей очереди слово вставало в хвост
   // за сотни других: возвращалось не через минуту, а через день-четыре. Именно поэтому
   // проваленное слово не успевало выучиться.
+  // Обход предела получают только карточки, начатые СЕГОДНЯ: бросать слово
+  // посреди сессии хуже, чем немного превысить предел. Карточки с интервалом 0
+  // с прошлых дней — это обычная работа, а не незаконченная сессия, и обходить
+  // предел они не должны: в реальной колоде их 189 из 565, они съели бы предел целиком.
   const learning = due.filter(c => (c.interval || 0) === 0);
-  if (learning.length) return learning[0];
-  // 2) обычные повторения
-  if (due.length) return due[0];
+  const startedToday = learning.filter(c => c.lastSeen && sameDay(c.lastSeen, Date.now()));
+  if (startedToday.length) return startedToday[0];
+  // 2) обычные повторения. Предел считается только по ним: карточку в заучивании
+  // бросать посреди сессии хуже, чем немного превысить дневной предел.
+  // остальное — обычная работа под пределом, включая заучивание с прошлых дней
+  const reviews = due;
+  if (reviews.length) {
+    if (reviews.length <= CFG.load.dailyReviewCap - reviewsDoneToday()) return reviews[0];
+    // Предел связывает: обычный порядок «сначала самое просроченное» уступает
+    // место выборке по покрытию, иначе часть колоды не будет просмотрена вовсе.
+    if (reviewsDoneToday() < CFG.load.dailyReviewCap) return reviews.slice().sort(byCoverage)[0];
+    // предел выбран — новые слова сегодня тоже не начинаем
+    return overLimit ? reviews[0] : null;
+  }
   // 3) новые слова. Дневная норма и потолок слов в работе — жёсткие: сколько
   // указано в настройках, столько сегодня и вводится. Поменяла число — граница
   // сдвинулась сразу, потому что сравнение идёт с текущим значением настройки.
@@ -1361,6 +1421,7 @@ function graduated(card) { return (card.step || 0) > 0; }
 function grade(card, quality) {
   if (!card.introduced) { card.introduced = true; data.sessionNew++; }
   card.seen = (card.seen || 0) + 1;
+  card.lastSeen = Date.now();
 
   if (quality === 'typo') {
     // Слово известно, написание — нет. Расписание не трогаем совсем, но
@@ -1427,15 +1488,6 @@ function normalize(s) {
 }
 function variants(str) {
   return String(str).split(/[,/;]|\bили\b/).map(normalize).filter(Boolean);
-}
-function lev(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
-  return dp[m][n];
 }
 // Раньше здесь прощалось любое расстояние Левенштейна 1, то есть и recieve,
 // и adress, и form вместо from. Теперь совпадение строгое, а промахи пальцем
@@ -1728,7 +1780,7 @@ async function requestAi(box, given, card) {
 //============ Отображение карточки ============
 let current = null;
 let currentMode = 'choice';
-let aheadMode = false;
+
 let overLimit = false; // тренировка сверх дневного лимита новых слов
 
 function nextCard() {
@@ -1736,9 +1788,7 @@ function nextCard() {
   rescueDone = false;
   if (aiAbort) { aiAbort.abort(); aiAbort = null; }
   current = pickCard();
-  aheadMode = overLimit;
   currentMode = current ? pickMode(current) : null;
-  if (current && currentMode !== 'rescue') current.lastMode = currentMode;
   renderCard();
   updateProgress();
 }
@@ -2112,7 +2162,6 @@ function renderRescue() {
     save(data);
     rescueDone = true;
     currentMode = pickMode(current);
-    current.lastMode = currentMode;
     renderCard();
   };
 }
@@ -2454,6 +2503,58 @@ function renderLadder() {
     + '. Числа подобраны на глаз, не из исследования.';
 }
 
+// Прогноз нагрузки. Считается по текущим срокам без симуляции: слово, у которого
+// срок попадает в неделю, придёт в эту неделю, и дальше — через свой следующий
+// интервал. Провалы не моделируются, поэтому оценка заведомо заниженная.
+function forecastWeeks(weeks) {
+  const now = Date.now();
+  const cap = maxIntervalDays();
+  const out = new Array(weeks).fill(0);
+  for (const c of data.cards) {
+    if (c.due === null) continue;
+    let due = c.due, step = c.step || 0;
+    // разворачиваем цепочку вперёд, пока не выйдем за горизонт
+    for (let guard = 0; guard < 200; guard++) {
+      const w = Math.floor((due - now) / (7 * DAY));
+      if (w >= weeks) break;
+      if (w >= 0) out[w]++;
+      step++;
+      const L = CFG.srs.ladder;
+      due += Math.min(L[Math.min(step, L.length) - 1], cap) * DAY;
+    }
+  }
+  return out;
+}
+
+function renderForecast() {
+  const weeks = 8;
+  const f = forecastWeeks(weeks);
+  const capDay = CFG.load.dailyReviewCap;
+  const rows = f.map((n, i) => {
+    const perDay = Math.round(n / 7);
+    const over = perDay > capDay;
+    const from = new Date(Date.now() + i * 7 * DAY);
+    const label = i === 0 ? 'эта неделя' : from.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    return '<tr><td>' + label + '</td>'
+      + '<td style="text-align:right">' + n + '</td>'
+      + '<td style="text-align:right' + (over ? ';color:var(--no)' : '') + '">'
+      + perDay + ' / день' + (over ? ' · выше предела' : '') + '</td></tr>';
+  }).join('');
+  document.getElementById('forecastTable').innerHTML =
+    '<tr><td class="muted-note">неделя</td><td class="muted-note" style="text-align:right">повторений</td>'
+    + '<td class="muted-note" style="text-align:right">в среднем</td></tr>' + rows;
+}
+
+function renderCap() {
+  document.getElementById('capInput').value = CFG.load.dailyReviewCap;
+  const hint = document.getElementById('capHint');
+  const deck = data.cards.filter(c => c.due !== null).length;
+  const need = Math.ceil(deck / 14);
+  hint.textContent = CFG.srs.examDate
+    ? '· чтобы пройти всю колоду (' + deck + ') за две недели перед экзаменом, нужно не меньше ' + need
+    : '· примерно ' + Math.round(CFG.load.dailyReviewCap / 5) + ' минут в день; заучивание сверх предела не обрывается';
+}
+
 function renderStats() {
   const warn = document.getElementById('storageWarn');
   if (warn) { warn.hidden = !storageWarned; if (storageWarned) warn.textContent = STORAGE_WARN_TEXT; }
@@ -2467,6 +2568,8 @@ function renderStats() {
   document.getElementById('leechInput').value = data.leechThreshold;
   renderLeeches();
   renderLadder();
+  renderCap();
+  renderForecast();
   renderProfile();
   renderApiSettings();
   updatePlanHint();
@@ -2518,6 +2621,12 @@ document.getElementById('devName').addEventListener('change', e => {
 });
 document.getElementById('devPrimary').addEventListener('change', e => {
   data.profile.isPrimary = e.target.checked; save(data);
+});
+document.getElementById('capInput').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (!(v >= 10)) { renderCap(); return; }
+  setUserConfig('load', 'dailyReviewCap', v);
+  renderCap(); renderForecast();
 });
 document.getElementById('ladderInput').addEventListener('change', e => {
   const r = parseLadder(e.target.value);
