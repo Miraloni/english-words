@@ -1,4 +1,4 @@
-const CACHE = 'wordnaut-v34';
+const CACHE = 'wordnaut-v35';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   // runtime-кэш ниже при первом обращении — заранее качать их не нужно.
   './data/false-friends-ru.json',
   './data/confusions-ru.json',
+  './data/mnemonics-ru.json',
 ];
 
 self.addEventListener('install', e => {

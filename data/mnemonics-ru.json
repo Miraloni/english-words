@@ -1,0 +1,486 @@
+{
+ "v": 1,
+ "l1": "ru",
+ "note": "Мнемоники по методу ключевого слова. Показываются только на спасательном экране, где перевод уже на экране выше — значение человек знает, и подсказка помогает его удержать. НО: заглавными выделено заявленное созвучие, а это утверждение о ЗВУЧАНИИ английского слова. Оно не проверяется переводом на экране. src: assistant-read — написано автором, произношение по словарю не сверялось.",
+ "entries": {
+  "advice": {
+   "text": "АД-ВАЙС: совет, как не попасть в ад.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "afraid": {
+   "text": "А, ФРЕЙД! Он-то и объяснял, чего мы боимся.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "agree": {
+   "text": "А-ГРЕЙ: согласен, давай греться вместе.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "answer": {
+   "text": "«АН, СЭР!» — вот и весь ответ.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "arrive": {
+   "text": "Приехал прямо на РЕЙВ.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "because": {
+   "text": "Би-КОЗА: почему? Потому что коза.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "believe": {
+   "text": "БИ-ЛИВ: чтобы верить, надо жить.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "bottle": {
+   "text": "БОТЛ — бутылка, которую не открыть без штопора.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "bread": {
+   "text": "Звучит как БРЕД, но это всего лишь хлеб.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "break": {
+   "text": "БРЕЙК — перерыв, все разошлись.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "busy": {
+   "text": "БИЗнесмен всегда занят.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "buy": {
+   "text": "Покупаешь — и деньгам БАЙ-бай.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "cheap": {
+   "text": "Дешёвый ЧИП за копейки.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "choose": {
+   "text": "ЧУЕШЬ, что выбрать?",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "clean": {
+   "text": "КЛИН вышибает грязь.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "clock": {
+   "text": "КЛОК времени, который тикает.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "cost": {
+   "text": "Сколько стоит? Да целую КОСТЬ.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "cut": {
+   "text": "КАТ — палач, который режет.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "daughter": {
+   "text": "ДОТА, в которую играет дочь. Буквы gh молчат.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "decide": {
+   "text": "ДИ-САЙД: решил, на какую сторону встать.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "describe": {
+   "text": "ДИС-СКРАЙБ: писарь описывает всё подряд.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "desk": {
+   "text": "ДОСКА стола — вот тебе и desk.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "dirty": {
+   "text": "ДЁРН из-под ног — грязный.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "early": {
+   "text": "ЁЛЫ-палы, как рано вставать.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "enough": {
+   "text": "Звучит как «и НАФИГ». Хватит, достаточно — и нафиг больше.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "expensive": {
+   "text": "Внутри сидит ПЕНСИЯ: на пенсию это слишком дорого.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "explain": {
+   "text": "ЭКС-ПЛАН: объясняешь по бывшему плану.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "eye": {
+   "text": "АЙ! — попало в глаз.",
+   "src": "assistant-read"
+  },
+  "far": {
+   "text": "ФАРы светят далеко — вот насколько far.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "fast": {
+   "text": "ФАСТфуд — потому что быстро.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "floor": {
+   "text": "ФЛОРа растёт прямо на полу.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "follow": {
+   "text": "ФОЛ — и все побежали следом за судьёй.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "forget": {
+   "text": "ФО-ГЕТ: забыл, за чем шёл.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "free": {
+   "text": "Картошка ФРИ сегодня бесплатно.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "grow": {
+   "text": "ГРОМ гремит — и всё растёт.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "guess": {
+   "text": "ГУСЬ угадал, куда ты спрятала хлеб.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "half": {
+   "text": "ХАВАть будем половину.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "hard": {
+   "text": "ХАРД-диск — твёрдый и тяжёлый, как и всё hard.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "hate": {
+   "text": "Хейт в комментариях — это и есть hate.",
+   "src": "assistant-read"
+  },
+  "hear": {
+   "text": "ХИ-ХИ слышно за стеной.",
+   "src": "assistant-read"
+  },
+  "hope": {
+   "text": "ХОП — и появилась надежда.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "horse": {
+   "text": "ХОРОШ конь!",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "hour": {
+   "text": "Час пик — и все АУ, где все.",
+   "src": "assistant-read"
+  },
+  "hungry": {
+   "text": "ХАНГРИ — от голода урчит, как «хрр».",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "island": {
+   "text": "Буква s на острове утонула: читается «айленд».",
+   "src": "assistant-read"
+  },
+  "keep": {
+   "text": "КИПа бумаг, которую ты хранишь и не выбрасываешь.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "kitchen": {
+   "text": "КИТ застрял в кухне и не пролезает в дверь.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "know": {
+   "text": "Буква k молчит — знающие люди не кричат.",
+   "src": "assistant-read"
+  },
+  "laugh": {
+   "text": "ЛАФА — так смешно, что не остановиться. Буквы gh молчат.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "letter": {
+   "text": "ЛЕТО, а от тебя ни одного письма.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "listen": {
+   "text": "Буква t молчит, когда слушаешь.",
+   "src": "assistant-read"
+  },
+  "lose": {
+   "text": "ЛУЗЕР — потому что вечно всё теряет.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "meet": {
+   "text": "Встреча — МИТинг.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "minute": {
+   "text": "МИНУТа — почти одинаково звучит.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "mistake": {
+   "text": "Мистер ТЕЙК взял не ту коробку — вышла ошибка.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "money": {
+   "text": "МАНИ-мани, всё как в песне.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "mountain": {
+   "text": "МАУНТ, на который забираются.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "often": {
+   "text": "ОФис — туда часто ходят. Буква t часто немая.",
+   "src": "assistant-read"
+  },
+  "pay": {
+   "text": "ПЕЙ, но сначала заплати.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "place": {
+   "text": "ПЛАЦ — место, где всё строятся.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "poor": {
+   "text": "ПУСто в карманах — вот и бедный.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "prepare": {
+   "text": "ПРИ-ПАРЕ: готовим на пару заранее.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "question": {
+   "text": "КВЕСТ начинается с вопроса.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "quiet": {
+   "text": "Тихий quiet и «довольно» quite различаются одной буквой — не путай.",
+   "src": "assistant-read"
+  },
+  "ready": {
+   "text": "РАДИ этого я и готовился.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "river": {
+   "text": "Река РЕВЁТ на порогах.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "run": {
+   "text": "РАНец скачет за спиной, когда бежишь.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "sad": {
+   "text": "В САДу сидит грустный человек.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "school": {
+   "text": "Буква h спряталась в школе: читается «скул».",
+   "src": "assistant-read"
+  },
+  "sell": {
+   "text": "СЕЛ за прилавок и стал продавать.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "short": {
+   "text": "ШОРТы — потому что короткие.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "sit": {
+   "text": "СИТец на стуле — садись.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "sleep": {
+   "text": "Глаза СЛИПаются — пора спать.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "small": {
+   "text": "СМОЛка — маленькая капля.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "stay": {
+   "text": "СТОЙ, останься ещё немного.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "still": {
+   "text": "СТИЛЬ не меняется — всё ещё тот же.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "street": {
+   "text": "СТРИТрейсеры гоняют по улице.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "strong": {
+   "text": "СТРОГий значит сильный.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "study": {
+   "text": "СТАДИя обучения — учиться поэтапно.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "swim": {
+   "text": "С ВАМИ плыть веселее.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "talk": {
+   "text": "Буква l молчит, пока ты говоришь: «ток».",
+   "src": "assistant-read"
+  },
+  "tired": {
+   "text": "ТАЙГА вымотала — устал.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "tree": {
+   "text": "ТРИ дерева стоят рядом — tree и есть «три» наоборот.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "try": {
+   "text": "ТРОЕ пробуют — вдруг получится.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "turn": {
+   "text": "ТЁРН — резкий поворот.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "understand": {
+   "text": "Стоять ПОД (under) вопросом достаточно долго, чтобы понять.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "wait": {
+   "text": "ВЕЙТ, не уходи.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "walk": {
+   "text": "Та же немая l: идёшь и молчишь — «уок».",
+   "src": "assistant-read"
+  },
+  "want": {
+   "text": "ВОН ТО хочу! — показываешь пальцем и говоришь want.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "warm": {
+   "text": "ВОРсистый свитер — тёплый.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "watch": {
+   "text": "ВОТ ЧЕГО я смотрю.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "weather": {
+   "text": "ВЕТЕР — первое, что спрашивают про погоду.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "wonderful": {
+   "text": "ВАНДЕРвафля — чудесная штука.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "word": {
+   "text": "Ворд — программа, в которой одни слова.",
+   "src": "assistant-read"
+  },
+  "work": {
+   "text": "УОРК — от него и «воркаут».",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "world": {
+   "text": "ВОРЛД оф варкрафт — целый мир.",
+   "src": "assistant-read",
+   "claims_sound": true
+  },
+  "write": {
+   "text": "Буква w впереди немая — рука пишет, а не говорит.",
+   "src": "assistant-read"
+  },
+  "wrong": {
+   "text": "Та же немая w: ошибся — молчи.",
+   "src": "assistant-read"
+  },
+  "young": {
+   "text": "ЯНки ещё молод.",
+   "src": "assistant-read"
+  }
+ }
+}

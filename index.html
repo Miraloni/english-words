@@ -998,107 +998,26 @@ async function loadConfusions() {
 
 // Мнемоники для слов, которые чаще всего западают: связка через созвучие с русским
 // или подсказка о немых буквах. Показываются в спасательном режиме.
-const MNEMONICS = {
-  'advice': 'АД-ВАЙС: совет, как не попасть в ад.',
-  'afraid': 'А, ФРЕЙД! Он-то и объяснял, чего мы боимся.',
-  'agree': 'А-ГРЕЙ: согласен, давай греться вместе.',
-  'answer': '«АН, СЭР!» — вот и весь ответ.',
-  'arrive': 'Приехал прямо на РЕЙВ.',
-  'because': 'Би-КОЗА: почему? Потому что коза.',
-  'believe': 'БИ-ЛИВ: чтобы верить, надо жить.',
-  'bottle': 'БОТЛ — бутылка, которую не открыть без штопора.',
-  'bread': 'Звучит как БРЕД, но это всего лишь хлеб.',
-  'break': 'БРЕЙК — перерыв, все разошлись.',
-  'busy': 'БИЗнесмен всегда занят.',
-  'buy': 'Покупаешь — и деньгам БАЙ-бай.',
-  'cheap': 'Дешёвый ЧИП за копейки.',
-  'choose': 'ЧУЕШЬ, что выбрать?',
-  'clean': 'КЛИН вышибает грязь.',
-  'clock': 'КЛОК времени, который тикает.',
-  'cost': 'Сколько стоит? Да целую КОСТЬ.',
-  'cut': 'КАТ — палач, который режет.',
-  'daughter': 'ДОТА, в которую играет дочь. Буквы gh молчат.',
-  'decide': 'ДИ-САЙД: решил, на какую сторону встать.',
-  'describe': 'ДИС-СКРАЙБ: писарь описывает всё подряд.',
-  'desk': 'ДОСКА стола — вот тебе и desk.',
-  'dirty': 'ДЁРН из-под ног — грязный.',
-  'early': 'ЁЛЫ-палы, как рано вставать.',
-  'enough': 'Звучит как «и НАФИГ». Хватит, достаточно — и нафиг больше.',
-  'expensive': 'Внутри сидит ПЕНСИЯ: на пенсию это слишком дорого.',
-  'explain': 'ЭКС-ПЛАН: объясняешь по бывшему плану.',
-  'eye': 'АЙ! — попало в глаз.',
-  'far': 'ФАРы светят далеко — вот насколько far.',
-  'fast': 'ФАСТфуд — потому что быстро.',
-  'floor': 'ФЛОРа растёт прямо на полу.',
-  'follow': 'ФОЛ — и все побежали следом за судьёй.',
-  'forget': 'ФО-ГЕТ: забыл, за чем шёл.',
-  'free': 'Картошка ФРИ сегодня бесплатно.',
-  'grow': 'ГРОМ гремит — и всё растёт.',
-  'guess': 'ГУСЬ угадал, куда ты спрятала хлеб.',
-  'half': 'ХАВАть будем половину.',
-  'hard': 'ХАРД-диск — твёрдый и тяжёлый, как и всё hard.',
-  'hate': 'Хейт в комментариях — это и есть hate.',
-  'hear': 'ХИ-ХИ слышно за стеной.',
-  'hope': 'ХОП — и появилась надежда.',
-  'horse': 'ХОРОШ конь!',
-  'hour': 'Час пик — и все АУ, где все.',
-  'hungry': 'ХАНГРИ — от голода урчит, как «хрр».',
-  'island': 'Буква s на острове утонула: читается «айленд».',
-  'keep': 'КИПа бумаг, которую ты хранишь и не выбрасываешь.',
-  'kitchen': 'КИТ застрял в кухне и не пролезает в дверь.',
-  'know': 'Буква k молчит — знающие люди не кричат.',
-  'laugh': 'ЛАФА — так смешно, что не остановиться. Буквы gh молчат.',
-  'letter': 'ЛЕТО, а от тебя ни одного письма.',
-  'listen': 'Буква t молчит, когда слушаешь.',
-  'lose': 'ЛУЗЕР — потому что вечно всё теряет.',
-  'meet': 'Встреча — МИТинг.',
-  'minute': 'МИНУТа — почти одинаково звучит.',
-  'mistake': 'Мистер ТЕЙК взял не ту коробку — вышла ошибка.',
-  'money': 'МАНИ-мани, всё как в песне.',
-  'mountain': 'МАУНТ, на который забираются.',
-  'often': 'ОФис — туда часто ходят. Буква t часто немая.',
-  'pay': 'ПЕЙ, но сначала заплати.',
-  'place': 'ПЛАЦ — место, где всё строятся.',
-  'poor': 'ПУСто в карманах — вот и бедный.',
-  'prepare': 'ПРИ-ПАРЕ: готовим на пару заранее.',
-  'question': 'КВЕСТ начинается с вопроса.',
-  'quiet': 'Тихий quiet и «довольно» quite различаются одной буквой — не путай.',
-  'ready': 'РАДИ этого я и готовился.',
-  'river': 'Река РЕВЁТ на порогах.',
-  'run': 'РАНец скачет за спиной, когда бежишь.',
-  'sad': 'В САДу сидит грустный человек.',
-  'school': 'Буква h спряталась в школе: читается «скул».',
-  'sell': 'СЕЛ за прилавок и стал продавать.',
-  'short': 'ШОРТы — потому что короткие.',
-  'sit': 'СИТец на стуле — садись.',
-  'sleep': 'Глаза СЛИПаются — пора спать.',
-  'small': 'СМОЛка — маленькая капля.',
-  'stay': 'СТОЙ, останься ещё немного.',
-  'still': 'СТИЛЬ не меняется — всё ещё тот же.',
-  'street': 'СТРИТрейсеры гоняют по улице.',
-  'strong': 'СТРОГий значит сильный.',
-  'study': 'СТАДИя обучения — учиться поэтапно.',
-  'swim': 'С ВАМИ плыть веселее.',
-  'talk': 'Буква l молчит, пока ты говоришь: «ток».',
-  'tired': 'ТАЙГА вымотала — устал.',
-  'tree': 'ТРИ дерева стоят рядом — tree и есть «три» наоборот.',
-  'try': 'ТРОЕ пробуют — вдруг получится.',
-  'turn': 'ТЁРН — резкий поворот.',
-  'understand': 'Стоять ПОД (under) вопросом достаточно долго, чтобы понять.',
-  'wait': 'ВЕЙТ, не уходи.',
-  'walk': 'Та же немая l: идёшь и молчишь — «уок».',
-  'want': 'ВОН ТО хочу! — показываешь пальцем и говоришь want.',
-  'warm': 'ВОРсистый свитер — тёплый.',
-  'watch': 'ВОТ ЧЕГО я смотрю.',
-  'weather': 'ВЕТЕР — первое, что спрашивают про погоду.',
-  'wonderful': 'ВАНДЕРвафля — чудесная штука.',
-  'word': 'Ворд — программа, в которой одни слова.',
-  'work': 'УОРК — от него и «воркаут».',
-  'world': 'ВОРЛД оф варкрафт — целый мир.',
-  'write': 'Буква w впереди немая — рука пишет, а не говорит.',
-  'wrong': 'Та же немая w: ошибся — молчи.',
-  'young': 'ЯНки ещё молод.',
-};
+// Мнемоники вынесены в data/mnemonics-ru.json: это утверждения не только о значении,
+// но и о ЗВУЧАНИИ («АД-ВАЙС» заявляет, что advice звучит именно так). Перевод на экране
+// такое утверждение не проверяет, поэтому статус у набора отдельный.
+let MNEMONICS = {};
+let mnMeta = {};
+let mnLoaded = null;
+
+async function loadMnemonics() {
+  if (mnLoaded) return mnLoaded;
+  const l1 = (data.profile && data.profile.l1) || 'ru';
+  mnLoaded = fetch('./data/mnemonics-' + l1 + '.json')
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => {
+      const e = (d && d.entries) || {};
+      for (const k of Object.keys(e)) { MNEMONICS[k] = e[k].text; mnMeta[k] = e[k]; }
+      return MNEMONICS;
+    })
+    .catch(err => { console.warn('мнемоники не загрузились:', err); return MNEMONICS; });
+  return mnLoaded;
+}
 
 function newCard(en, ru, example) {
   return {
@@ -2566,6 +2485,30 @@ function fileFromUrl(u) {
 }
 
 // Для слов из чужого словаря мнемоники в наборе нет — просим её у сервера
+// Признак прилагательного по русскому переводу: -ый, -ий, -ой, -ая, -ое.
+// Считается локально, потому что решение об абстрактности нельзя целиком отдавать
+// модели: ей выгодно ответить «конкретное», тогда есть что генерировать.
+// Часть речи у прилагательных известна и без неё.
+function looksAdjective(ru) {
+  return /(ый|ий|ой|ая|яя|ое|ее)\s*$/.test(String(ru || '').split(/[,;/]/)[0].trim());
+}
+
+const MN_STATS = 'wordnaut-mnstats';
+function mnStats() {
+  try { return JSON.parse(localStorage.getItem(MN_STATS) || '{}'); } catch (e) { return {}; }
+}
+// Доля отказов — единственный способ увидеть, работает ли промпт: если она нулевая,
+// модель по-прежнему натягивает созвучия вместо честного «не подобралось».
+// Расхождение локального признака и ответа модели тоже считается: если модель
+// систематически зовёт прилагательные конкретными, это видно здесь.
+function mnNote(kind, modelAbstract, localAdj) {
+  const st = mnStats();
+  st[kind] = (st[kind] || 0) + 1;
+  if (localAdj && !modelAbstract) st.disagree = (st.disagree || 0) + 1;
+  if (localAdj) st.adjLocal = (st.adjLocal || 0) + 1;
+  safeSet(MN_STATS, JSON.stringify(st));
+}
+
 async function fetchMnemonic(host, token, base, meaning) {
   const card = current;
   const box = document.querySelector('.rescue .word');
@@ -2575,15 +2518,33 @@ async function fetchMnemonic(host, token, base, meaning) {
   el.textContent = 'Придумываю подсказку…';
   box.parentNode.insertBefore(el, document.getElementById('imgHost'));
   try {
-    const r = await apiCall({ url: host, token }, '/mnemonic', { word: base, meaning });
+    const r = await apiCall({ url: host, token }, '/mnemonic',
+      { word: base, meaning, l1: (data.profile && data.profile.l1) || 'ru' });
     if (card !== current) return el.remove();
-    if (r.ok && r.data && r.data.text) {
+    const d = (r.ok && r.data) || {};
+    const localAdj = looksAdjective(meaning);
+    if (r.ok) mnNote(d.kind || 'none', !!d.abstract, localAdj);
+
+    if (d.kind === 'none' || (r.ok && !d.text)) {
+      // Отказ показываем словами. Молчаливое исчезновение подсказки неотличимо
+      // от плохой мнемоники, и понять, работает ли метод, было бы невозможно.
       el.className = 'rescue-hint';
-      el.textContent = r.data.text;
-      rescueHint = r.data.text;
-      mnRemember(base, r.data.text);
-    } else el.remove();
-  } catch (e) { el.remove(); }
+      el.innerHTML = '<span class="muted-note">Созвучия для этого слова не подобралось — '
+        + 'русский и английский неродственны, и так бывает. Ниже картинка и пример.</span>';
+      rescueHint = '';
+      return;
+    }
+    if (!d.text) return el.remove();
+
+    el.className = 'rescue-hint';
+    // Сценарий употребления — не мнемоника, и подписан иначе: метод ключевого слова
+    // на абстрактном и прилагательных работает плохо (И4).
+    el.innerHTML = (d.kind === 'context'
+        ? '<span class="muted-note">Слово абстрактное, созвучие тут не помогает. Как это говорят:</span><br>'
+        : '') + esc(d.text);
+    rescueHint = d.kind === 'keyword' ? d.text : '';
+    mnRemember(base, d.text);
+  } catch (e) { console.warn('мнемоника не пришла:', e); el.remove(); }
 }
 
 let rescueHint = '';
@@ -3364,15 +3325,31 @@ function renderConfStats() {
   const hidden = (byKind.nuance || 0) + (byKind.pending || 0);
 
   rows.push(['Подтверждено внешним словарём', dictVerified + ' пар ложных друзей']);
-  rows.push(['Прочитано автором, не сверено', authorRead + ' разборов близких слов']);
+  const mnSound = Object.values(mnMeta).filter(m => m.claims_sound).length;
+  rows.push(['Прочитано автором, не сверено', authorRead + ' разборов близких слов'
+    + (Object.keys(mnMeta).length ? ' и ' + Object.keys(mnMeta).length + ' мнемоник' : '')]);
+  if (mnSound) rows.push(['Из них заявляют созвучие', mnSound + ' мнемоник · произношение по словарю не сверялось']);
   rows.push(['Школьное правило, сверка не нужна', rules + ' записей']);
+  const mn = mnStats();
+  const mnTotal = (mn.keyword || 0) + (mn.context || 0) + (mn.none || 0);
+  if (mnTotal) {
+    const refuse = Math.round(100 * (mn.none || 0) / mnTotal);
+    rows.push(['Подсказки от модели', mnTotal + ': созвучие ' + (mn.keyword || 0)
+      + ', сценарий ' + (mn.context || 0) + ', отказ ' + (mn.none || 0)
+      + ' (' + refuse + '%)' + (refuse === 0 ? ' — отказов нет, промпт не работает' : '')]);
+    if (mn.adjLocal) {
+      rows.push(['Прилагательные по переводу', mn.adjLocal
+        + (mn.disagree ? ' · модель назвала конкретными: ' + mn.disagree : ' · расхождений с моделью нет')]);
+    }
+  }
   rows.push(['Отложено и не показывается', hidden + ' записей'
     + ((byKind.nuance || 0) ? ' · ' + byKind.nuance + ' оттенков ждут экрана слова' : '')
     + ((byKind.pending || 0) ? ' · ' + byKind.pending + ' спорных' : '')]);
 
   box.innerHTML = '<table style="width:100%">' + rows.map(r =>
     '<tr><td class="muted-note">' + r[0] + '</td><td style="text-align:right'
-    + (/Прочитано автором/.test(r[0]) ? ';color:var(--no)' : '') + '">' + esc(r[1]) + '</td></tr>').join('')
+    + (/Прочитано автором/.test(r[0]) || /промпт не работает|назвала конкретными/.test(r[1])
+        ? ';color:var(--no)' : '') + '">' + esc(r[1]) + '</td></tr>').join('')
     + '</table>';
 }
 
@@ -3746,6 +3723,7 @@ nextCard();
 // ловушки становятся доступны сами. Нет файла или сети — ffPairs станет пустым,
 // и функция просто не включится.
 loadConfusions().then(() => { if (document.getElementById('confBox')) renderConfStats(); });
+loadMnemonics().then(() => { if (document.getElementById('confBox')) renderConfStats(); });
 loadFalseFriends().then(() => {
   if (document.getElementById('trapsBox')) { renderTraps(); renderFfReview(); }
   if (!current) renderCard();     // экран «план выполнен» мог быть построен до загрузки
