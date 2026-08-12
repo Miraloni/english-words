@@ -501,6 +501,7 @@
   <!-- СТАТИСТИКА -->
   <section id="stats" class="view">
     <div class="stats-grid">
+      <span class="import-status" id="storageWarn" hidden style="display:block;margin-bottom:12px"></span>
       <div class="stat-box"><div class="num" id="stTotal">0</div><div class="lbl">Всего слов</div></div>
       <div class="stat-box"><div class="num" id="stLearned">0</div><div class="lbl">В работе</div></div>
       <div class="stat-box"><div class="num" id="stDone">0</div><div class="lbl">Закреплено</div></div>
@@ -537,6 +538,13 @@
       Дата экзамена:
       <input id="examDate" type="date" style="width:180px" />
       <span class="muted-note" id="examHint"></span>
+    </div>
+
+    <div class="goal-row" style="flex-wrap:wrap">
+      Лестница интервалов (дни через запятую):
+      <input id="ladderInput" style="width:240px" autocomplete="off" spellcheck="false" />
+      <button class="btn-ghost" id="ladderReset">Вернуть стандартную</button>
+      <span class="muted-note" id="ladderHint" style="flex-basis:100%"></span>
     </div>
 
     <h3 class="section-label">Настройки</h3>
@@ -642,6 +650,92 @@ luggage; багаж; My luggage is too heavy.</pre>
 //============ Хранилище ============
 const STORAGE_KEY = 'english-words-v1';
 const DAY = 24 * 60 * 60 * 1000;
+
+//============ Конфигурация ============
+// Два уровня: дефолты приложения и пользовательский слой (data.config), пустой
+// по умолчанию. В пользовательском слое лежит только то, что явно изменено,
+// поэтому смена дефолта в новой версии доезжает сама.
+//
+// У каждого значения помечено происхождение. «И1», «И2» — следует из исследования;
+// «эвристика» — выбрано по соображениям, а не из данных, и может оказаться неверным.
+const CONFIG_DEFAULTS = {
+  srs: {
+    // Лестница интервалов в днях. Заменила ease: множитель разгонялся без верхней
+    // границы, потому что после P1-C порог уверенности отсекал ~80-й процентиль,
+    // и easy стал нормой, а не исключением — 84% карточек упирались в потолок
+    // за 12 предъявлений. По И2 равномерные и расширяющиеся интервалы
+    // статистически эквивалентны, то есть доказанного преимущества у множителя нет.
+    // Сами числа — ЭВРИСТИКА (множитель ~2.2): И2 разрешает расширять, но не говорит
+    // насколько. Проверяется отложенным контрольным тестом (P2-D); если он покажет
+    // провал на длинных интервалах, хвост лестницы подрезается здесь же.
+    ladder: [1, 3, 7, 16, 35, 75, 160],
+    // ЭВРИСТИКА: полгода — достаточно длинный интервал, чтобы уважать вывод И2,
+    // и достаточно короткий, чтобы слово проверялось хотя бы дважды в год.
+    maxIntervalNoDeadline: 180,
+    // ЭВРИСТИКА: с этого интервала слово считается закреплённым и не занимает
+    // места в работе.
+    graduatedDays: 21,
+    // ЭВРИСТИКА: с датой экзамена потолок = половина оставшегося срока.
+    examCapDivisor: 2,
+    // ЭВРИСТИКА: пауза после единственного ознакомительного показа.
+    firstStepMin: 1,
+    // Возврат прощённой опечатки внутри сессии (P1-C). ЭВРИСТИКА.
+    typoReturnMin: 10
+  },
+  modes: {
+    // И1: узнавание нужно только для знакомства со словом, дальше — извлечение.
+    // Второе ознакомление («выбери английское слово») убрано: то же узнавание
+    // наоборот, оно поднимало долю угадывания с 27% до 43% показов.
+    introModes: ['choice'],
+    // ЭВРИСТИКА, согласовано 11.08.2026 по замеру распределения режимов.
+    clozeShare: 0.35,
+    listenFrom: 3,
+    // 0 = выключить режим на слух совсем.
+    listenEvery: 5
+  },
+  latency: {
+    // ВНИМАНИЕ: после отказа от ease ни одно значение этой группы НЕ ВЛИЯЕТ
+    // на расписание — любой верный ответ двигает ровно на одну ступень, поэтому
+    // easy и good неразличимы. Замеры копятся как сырьё для будущих решений
+    // и для P2-D (связана ли скорость ответа с удержанием).
+    lengthOffset: 5,   // ЭВРИСТИКА: эквивалент постоянных затрат в символах
+    window: 200,       // ЭВРИСТИКА: сколько последних замеров храним по режиму
+    minSamples: 30,    // ЭВРИСТИКА: до этого числа режим работает по общему пулу
+    // ЭВРИСТИКА, и она уже подвела: 1.0 ставит порог на медиане плюс сигма,
+    // то есть примерно на 80-м процентиле. Пока ни на что не влияет.
+    madK: 1.0
+  },
+  load: {
+    // Из симуляции на реальной колоде: без потолка в оборот входит вся колода,
+    // и при цели в 20 повторений за месяц не выучивается ни одного слова.
+    maxInWork: 150,
+    // ЭВРИСТИКА: новых слов в день по умолчанию.
+    newPerDay: 40
+  },
+  caches: {
+    // ЭВРИСТИКА. Раньше потолка у кэша мнемоник не было вовсе, и при цели
+    // в 5000 слов он молча упёрся бы в лимит localStorage.
+    mnMax: 500,
+    aiMax: 500,
+    typoLog: 300
+  }
+};
+
+// Слияние на два уровня вложенности: глубже конфиг не идёт.
+function mergeConfig(base, over) {
+  const out = {};
+  for (const k of Object.keys(base)) {
+    const b = base[k], o = over && over[k];
+    out[k] = (b && typeof b === 'object' && !Array.isArray(b))
+      ? Object.assign({}, b, o && typeof o === 'object' ? o : {})
+      : (o === undefined ? b : o);
+  }
+  return out;
+}
+
+// Пересчитывается при загрузке и после каждого изменения настроек.
+let CFG = CONFIG_DEFAULTS;
+function applyConfig(d) { CFG = mergeConfig(CONFIG_DEFAULTS, d && d.config); return CFG; }
 // Потолок интервала. Явной графации в приложении нет и не было — слово никогда
 // не выводится из очереди. Но неограниченный рост интервала работал как скрытая
 // графация: при ease 2.5 цепочка успехов даёт 1 -> 3 -> 7 -> 19 -> 47 -> 117 -> 293
@@ -660,30 +754,25 @@ const DAY = 24 * 60 * 60 * 1000;
 // слову тихо выпасть из ротации. Полгода достаточно длинный интервал, чтобы
 // уважать вывод И2 о пользе длинных интервалов, и достаточно короткий, чтобы
 // каждое слово проверялось хотя бы дважды в год.
-const MAX_INTERVAL_NO_DEADLINE = 180;
-
-// Профиль передаётся явно: функция вызывается из load(), где глобальная data
-// ещё не инициализирована.
-function maxIntervalDays(profile) {
-  const exam = profile && profile.examDate;
-  if (!exam) return MAX_INTERVAL_NO_DEADLINE;
+// Конфиг передаётся явно: функция вызывается из load(), где глобальная CFG
+// может быть ещё не пересчитана под загружаемые данные.
+function maxIntervalDays(cfg) {
+  const c = cfg || CFG;
+  const exam = c.srs.examDate;
+  if (!exam) return c.srs.maxIntervalNoDeadline;
   const left = Math.ceil((new Date(exam + 'T00:00:00') - Date.now()) / DAY);
   // дата прошла — дедлайна больше нет, возвращаемся к поддерживающему режиму
-  if (left <= 0) return MAX_INTERVAL_NO_DEADLINE;
-  return Math.max(1, Math.floor(left / 2));
+  if (left <= 0) return c.srs.maxIntervalNoDeadline;
+  return Math.max(1, Math.floor(left / c.srs.examCapDivisor));
 }
 
-const DEFAULT_NEW_PER_DAY = 40; // новых слов в день по умолчанию (настраивается)
-
-// Сколько слов держим в работе одновременно. Без потолка в оборот входит вся колода:
-// на 562 словах и цели в 20 повторений очередь не рассасывается никогда, и за месяц
-// не выучивается ни одного слова — усилие размазано вместо того, чтобы доводить.
-const MAX_IN_WORK = 150;
-// С этого интервала слово считается закреплённым и место в работе больше не занимает,
-// иначе потолок забился бы выученными и новые слова перестали бы поступать.
-const GRADUATED_DAYS = 21;
-// Ступени заучивания в минутах: пока слово не набрано руками, оно не уходит на дни.
-const LEARN_STEPS_MIN = [1, 10];
+// Интервал ступени, с учётом потолка. Ступень 0 = слово ещё не на лестнице.
+function ladderInterval(step, cfg) {
+  const c = cfg || CFG;
+  const L = c.srs.ladder;
+  if (step < 1) return 0;
+  return Math.min(L[Math.min(step, L.length) - 1], maxIntervalDays(c));
+}
 
 // Стартовый словарь: [английское, русское, пример (необязательно)]
 const STARTER = [
@@ -966,7 +1055,7 @@ function newCard(en, ru, example) {
   return {
     id: 'c' + Math.random().toString(36).slice(2, 9),
     en, ru, example: example || '',
-    reps: 0, interval: 0, ease: 2.5,
+    step: 0, interval: 0,   // step — сколько ступеней лестницы пройдено
     due: null,        // null = новое слово
     introduced: false,
     order: Math.random(),  // порядок ввода новых слов; фиксируется один раз, иначе карточка прыгает при перерисовке
@@ -990,16 +1079,16 @@ function newCard(en, ru, example) {
 function defaults() {
   return {
     cards: STARTER.map(([en, ru, ex]) => newCard(en, ru, ex)),
+    config: {},   // пользовательский слой: только явно изменённое
     sessionNew: 0, sessionDate: today(),
     dailyGoal: 20, reviewsToday: 0, reviewsDate: today(),
-    newPerDay: DEFAULT_NEW_PER_DAY,
+    newPerDay: CFG.load.newPerDay,
     streak: 0, lastStudyDate: null,
     leechThreshold: 5,
-    schema: 3,
+    schema: 4,
     // Профиль переносится бэкапом. Калибровка сюда не попадает: она про устройство.
     profile: {
       l1: 'ru',             // родной язык: от него зависят keyword-метод и набор ложных друзей
-      examDate: null,       // необязательно; без даты горизонт бессрочный
       deviceName: '',
       isPrimary: false      // основное устройство: только на нём идёт отложенный тест
     }
@@ -1021,6 +1110,14 @@ function load() {
       for (const k of Object.keys(def.profile)) {
         if (d.profile[k] === undefined) d.profile[k] = def.profile[k];
       }
+      // Пользовательский слой конфига. Дата экзамена ПЕРЕЕЗЖАЕТ сюда из профиля:
+      // два места для одного значения рано или поздно разойдутся.
+      if (!d.config || typeof d.config !== 'object') d.config = {};
+      if (d.profile.examDate && !(d.config.srs && d.config.srs.examDate)) {
+        d.config.srs = Object.assign({}, d.config.srs, { examDate: d.profile.examDate });
+      }
+      delete d.profile.examDate;
+      applyConfig(d);
       d.cards.forEach(c => {
         if (c.example === undefined) c.example = '';
         // колода импортировалась по алфавиту — случайный order раскидывает её один раз и навсегда
@@ -1029,6 +1126,17 @@ function load() {
         // reps обнулялся при провалах, поэтому reps + lapses занижает число показов.
         // Пол в двойке не даёт уже знакомому слову откатиться в ознакомительный режим.
         if (c.seen === undefined) c.seen = c.introduced ? Math.max(2, (c.reps || 0) + (c.lapses || 0)) : 0;
+        // Переезд с ease на лестницу. Ступень выбирается как НАИБОЛЬШАЯ, чья длина
+        // не превышает текущий интервал, поэтому ни одна карточка не откатывается:
+        // слово с интервалом 3 дня встаёт на ступень «3» и дальше идёт на 7.
+        if (c.step === undefined) {
+          const L = CFG.srs.ladder;
+          let st = 0;
+          for (let i = 0; i < L.length; i++) if (L[i] <= (c.interval || 0)) st = i + 1;
+          c.step = st;
+        }
+        delete c.ease;   // мёртвого поля не оставляем
+        delete c.reps;
         if (c.lastMode === undefined) c.lastMode = null;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
         if (c.prepAt === undefined) c.prepAt = null;
@@ -1037,7 +1145,8 @@ function load() {
       clampIntervals(d);
       // Разовая парковка: в оборот успела войти вся колода. Выполняется один раз,
       // дальше поток новых слов сдерживает потолок в pickCard.
-      if ((d.schema || 0) < 3) { d.parked = parkExcess(d); d.schema = 3; }
+      if ((d.schema || 0) < 3) { d.parked = parkExcess(d); }
+      d.schema = 4;
       return d;
     } catch (e) {}
   }
@@ -1049,7 +1158,7 @@ function load() {
 // поэтому по мере приближения экзамена расписание уплотняется само.
 // Операция идемпотентна: это взятие минимума, повторный запуск ничего не меняет.
 function clampIntervals(d) {
-  const cap = maxIntervalDays(d.profile);
+  const cap = maxIntervalDays(mergeConfig(CONFIG_DEFAULTS, d.config));
   const limit = Date.now() + cap * DAY;
   let moved = 0;
   for (const c of d.cards) {
@@ -1057,6 +1166,38 @@ function clampIntervals(d) {
     if (c.due !== null && c.due > limit) { c.due = limit; moved++; }
   }
   return moved;
+}
+
+// Запись в пользовательский слой. Значение, равное дефолту, из слоя удаляется —
+// иначе слой зарастёт копиями дефолтов и перестанет их получать при обновлении.
+function setUserConfig(group, key, value) {
+  if (!data.config) data.config = {};
+  const def = CONFIG_DEFAULTS[group] && CONFIG_DEFAULTS[group][key];
+  const g = Object.assign({}, data.config[group]);
+  if (value === null || value === undefined || JSON.stringify(value) === JSON.stringify(def)) delete g[key];
+  else g[key] = value;
+  if (Object.keys(g).length) data.config[group] = g; else delete data.config[group];
+  applyConfig(data);
+  save(data);
+}
+
+// Единственное место, где пишется localStorage помимо основных данных.
+// Раньше каждая такая запись глотала исключение молча: при переполнении
+// хранилища мнемоники просто переставали сохраняться, и узнать об этом было
+// неоткуда. Теперь отказ виден — в консоли всегда, а в интерфейсе один раз.
+let storageWarned = false;
+const STORAGE_WARN_TEXT = 'Хранилище переполнено: подсказки и замеры перестали сохраняться. ' +
+  'Прогресс не затронут — он пишется отдельно. Помогает выгрузка и очистка кэша.';
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch (e) {
+    console.warn('Не удалось записать «' + key + '»: ' + e.name + '. Хранилище переполнено?');
+    storageWarned = true;
+    // экран статистики может быть ещё не построен — тогда признак покажется при отрисовке
+    const el = document.getElementById('storageWarn');
+    if (el) { el.textContent = STORAGE_WARN_TEXT; el.hidden = false; }
+    return false;
+  }
 }
 
 function save(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
@@ -1106,7 +1247,7 @@ function newCards() { return data.cards.filter(c => !c.introduced); }
 
 // Слова, которые сейчас требуют внимания: начатые и ещё не закреплённые.
 function inWorkCards(d) {
-  return d.cards.filter(c => c.introduced && c.due !== null && (c.interval || 0) < GRADUATED_DAYS);
+  return d.cards.filter(c => c.introduced && c.due !== null && (c.interval || 0) < CFG.srs.graduatedDays);
 }
 
 // Возвращает лишние слова в очередь новых. Прогресс не теряется: reps, interval, ease
@@ -1114,9 +1255,9 @@ function inWorkCards(d) {
 // самые продвинутые — вложенное усилие не пропадает.
 function parkExcess(d) {
   const active = inWorkCards(d);
-  if (active.length <= MAX_IN_WORK) return 0;
-  active.sort((a, b) => (b.reps - a.reps) || ((b.seen || 0) - (a.seen || 0)) || (b.interval - a.interval));
-  const park = active.slice(MAX_IN_WORK);
+  if (active.length <= CFG.load.maxInWork) return 0;
+  active.sort((a, b) => ((b.step || 0) - (a.step || 0)) || ((b.seen || 0) - (a.seen || 0)) || (b.interval - a.interval));
+  const park = active.slice(CFG.load.maxInWork);
   for (const c of park) { c.introduced = false; c.due = null; }
   return park.length;
 }
@@ -1137,7 +1278,7 @@ function pickCard() {
   // «Сверх лимита» эти две границы НЕ обходит: раньше обходил, и за один вечер
   // при норме 20 вводилось 46 новых слов.
   const fresh = newCards().sort((a, b) => a.order - b.order);
-  const room = inWorkCards(data).length < MAX_IN_WORK;
+  const room = inWorkCards(data).length < CFG.load.maxInWork;
   if (fresh.length && data.sessionNew < data.newPerDay && room) return fresh[0];
   // 3) сверх лимита и новых не осталось — даём ближайшее будущее слово для тренировки
   if (overLimit) {
@@ -1183,10 +1324,6 @@ let rescueDone = false;   // спасение показывается один 
 // Одно ознакомительное предъявление, дальше только воспроизведение. Второе
 // ознакомление («выбери английское слово») — то же узнавание наоборот, по И1 оно
 // ничего не добавляет, а доля угадывания с ним была 43% против 27%.
-const INTRO_MODES = ['choice'];
-const CLOZE_SHARE = 0.35;  // доля контекстного ввода среди продуктивных показов
-const LISTEN_FROM = 3;     // раньше этого предъявления на слух не спрашиваем
-const LISTEN_EVERY = 5;    // и дальше — каждый пятый
 
 function pickMode(card) {
   if (!rescueDone && needsRescue(card)) return 'rescue';
@@ -1194,16 +1331,16 @@ function pickMode(card) {
 
   // Слово, которое человек видел меньше двух раз, продуктивным вводом
   // проверять нечего: это будет пустой экран, а не припоминание.
-  if (seen < INTRO_MODES.length) return INTRO_MODES[seen];
+  if (seen < CFG.modes.introModes.length) return CFG.modes.introModes[seen];
 
   // На слух — добавка к расписанию по фиксированному шагу. В общем пуле
   // он съедал бы долю продуктивных показов, поэтому занимает слот целиком.
-  if (seen >= LISTEN_FROM && seen % LISTEN_EVERY === 0 && modeUsable('listen', card)) return 'listen';
+  if (seen >= CFG.modes.listenFrom && seen % CFG.modes.listenEvery === 0 && modeUsable('listen', card)) return 'listen';
 
   // Дальше только продуктивное припоминание. Пропуск в предложении легче
   // голого ввода — контекст подсказывает, — поэтому он в меньшинстве.
   // Нет примера или слово стоит в нём в другой форме — молча уходим в type.
-  if (Math.random() < CLOZE_SHARE && modeUsable('cloze', card)) return 'cloze';
+  if (Math.random() < CFG.modes.clozeShare && modeUsable('cloze', card)) return 'cloze';
   return 'type';
 }
 
@@ -1211,72 +1348,50 @@ function pickMode(card) {
 // Режимы, где слово надо воспроизвести, а не узнать
 const TYPED_MODES = ['type', 'cloze', 'listen'];
 // Слово вышло на дневные интервалы. Провал возвращает его обратно в заучивание.
-function graduated(card) { return (card.reps || 0) > 0 || (card.interval || 0) > 0; }
+function graduated(card) { return (card.step || 0) > 0; }
 
+// quality: 'again' | 'typo' | 'good' | 'easy'
+//
+// easy и good обрабатываются ОДИНАКОВО, и это не упущение. Раньше easy поднимал
+// ease на 0.15 без верхней границы и умножал интервал на 1.3. После P1-C порог
+// уверенности отсекает примерно 80-й процентиль, то есть easy стал нормой:
+// 84% карточек упирались в потолок интервала за 12 предъявлений. По И2 у множителя
+// нет доказанного преимущества, поэтому вместо него — фиксированная лестница,
+// и любой верный ответ двигает ровно на одну ступень.
 function grade(card, quality) {
-  // quality: 'again' | 'typo' | 'good' | 'easy'
-  // Ветки hard ниже — мёртвый код: см. TODO (P1-D) у newCard.
   if (!card.introduced) { card.introduced = true; data.sessionNew++; }
   card.seen = (card.seen || 0) + 1;
 
   if (quality === 'typo') {
     // Слово известно, написание — нет. Расписание не трогаем совсем, но
     // возвращаем карточку в этой же сессии, чтобы написание было воспроизведено.
-    card.due = Date.now() + 10 * 60 * 1000;
-    registerReview();
-    save(data);
-    return;
-  }
-  if (quality === 'again') {
+    card.due = Date.now() + CFG.srs.typoReturnMin * 60 * 1000;
+  } else if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
-    // Готовим подсказку за провал до порога. Раньше здесь стояло строгое равенство,
-    // и попытка была ровно одна: если в тот момент не было токена или сети, к порогу
-    // готовить было нечего, и экран показывал кнопку вместо картинки. Теперь пробуем
-    // на каждом провале начиная с «порог минус один», пока не получится.
+    // Готовим подсказку за провал до порога. Пробуем на каждом провале начиная
+    // с «порог минус один», пока не получится: одной попытки не хватало, если
+    // в тот момент не было токена или сети.
     if (card.lapses >= data.leechThreshold - 1 && !card.prepOk && card.prepAt !== card.lapses) {
       card.prepAt = card.lapses;
       prepRescue(card).then(ok => { card.prepOk = !!ok; save(data); });
     }
-    card.reps = 0;
-    card.ease = Math.max(1.3, card.ease - 0.2);
+    // Откат в начало лестницы. Проверено симуляцией против отката на одну и на две
+    // ступени: откат в начало помнит 97% против 89% и 46% при сопоставимой работе.
+    card.step = 0;
     card.interval = 0;
     card.due = Date.now() + 60 * 1000; // вернётся через минуту
   } else if (!graduated(card) && !TYPED_MODES.includes(currentMode)) {
     // Слово ещё не выходило на дневные интервалы, а узнать его среди четырёх вариантов —
-    // не то же самое, что вспомнить (И1). Держим на коротких ступенях, пока не набрано руками.
-    const step = LEARN_STEPS_MIN[Math.min(Math.max(card.seen - 1, 0), LEARN_STEPS_MIN.length - 1)];
-    card.due = Date.now() + step * 60 * 1000;
-    registerReview();
-    save(data);
-    return;
-  } else if (!graduated(card)) {
-    // первый верный ввод руками — выпуск на дневные интервалы
-    card.interval = quality === 'easy' ? 2 : 1;
-    card.reps = 1;
-    card.ease = quality === 'easy' ? card.ease + 0.15 : card.ease;
-    card.due = Date.now() + card.interval * DAY;
+    // не то же самое, что вспомнить (И1). На лестницу пускаем только после ввода руками.
+    card.due = Date.now() + CFG.srs.firstStepMin * 60 * 1000;
   } else {
-    if (quality === 'easy') card.ease += 0.15;
-    if (quality === 'hard') card.ease = Math.max(1.3, card.ease - 0.15);
-    const mult = quality === 'easy' ? 1.3 : (quality === 'hard' ? 1 : 1);
-    if (card.reps === 0) card.interval = quality === 'easy' ? 2 : 1;
-    else if (card.reps === 1) card.interval = quality === 'easy' ? 5 : (quality === 'hard' ? 2 : 3);
-    else card.interval = Math.max(1, Math.round(card.interval * card.ease * mult * (quality === 'hard' ? 0.6 : 1)));
-    card.interval = Math.min(card.interval, maxIntervalDays(data.profile));
-    card.reps++;
+    card.step = (card.step || 0) + 1;
+    card.interval = ladderInterval(card.step);
     card.due = Date.now() + card.interval * DAY;
   }
 
   registerReview();
   save(data);
-}
-
-function intervalLabel(card, q) {
-  let i;
-  if (card.reps === 0) i = q === 'easy' ? 2 : 1;
-  else if (card.reps === 1) i = q === 'easy' ? 5 : (q === 'hard' ? 2 : 3);
-  else i = Math.max(1, Math.round(card.interval * card.ease * (q === 'easy' ? 1.3 : 1) * (q === 'hard' ? 0.6 : 1)));
-  return i === 1 ? '1 день' : i + ' дн.';
 }
 
 // Отметка о занятии. День без единого обращения к модели иначе не создал бы
@@ -1325,6 +1440,12 @@ function lev(a, b) {
 // Раньше здесь прощалось любое расстояние Левенштейна 1, то есть и recieve,
 // и adress, и form вместо from. Теперь совпадение строгое, а промахи пальцем
 // разбираются отдельными правилами ниже.
+// TODO: настоящие синонимы (hi/hello, everyone/everybody, start/begin) в режиме
+// ввода RU→EN неразличимы в принципе: по русскому «привет» нельзя понять, какое из
+// двух слов ждут. Нужно поле альтернативных верных ответов в самой карточке —
+// вариант из него засчитывается, но в ответе показывается загаданное слово.
+// Правка переводов в колоде вручную — подпорка, а не решение: она не переносится
+// на чужие словари и ломается при импорте.
 function isMatch(input, answer) {
   const ni = normalize(input);
   if (!ni) return false;
@@ -1434,16 +1555,12 @@ function calib() {
   try { return JSON.parse(localStorage.getItem(CALIB_STORE) || '{}'); } catch (e) { return {}; }
 }
 function calibSave(c) {
-  try { localStorage.setItem(CALIB_STORE, JSON.stringify(c)); } catch (e) {}
+  safeSet(CALIB_STORE, JSON.stringify(c));
 }
 
 // Окна раздельны по режимам: в listen нет извлечения перевода, в cloze контекст
 // сужает ответ. Одно общее окно раздуло бы разброс, и порог перестал бы различать
 // уверенность — то есть сломалось бы ровно то, ради чего он вводится.
-const CALIB_WINDOW = 200;   // сколько последних замеров храним по режиму
-const CALIB_MIN = 30;       // до этого числа собственное окно не используется
-const CALIB_OVERHEAD = 5;   // эквивалент постоянных затрат в символах
-const CALIB_K = 1.0;        // во сколько сигм отступаем от медианы
 
 function median(xs) {
   const a = [...xs].sort((x, y) => x - y);
@@ -1455,7 +1572,7 @@ function calibPush(mode, rate) {
   const c = calib();
   if (!Array.isArray(c[mode])) c[mode] = [];
   c[mode].push(Math.round(rate));
-  if (c[mode].length > CALIB_WINDOW) c[mode] = c[mode].slice(-CALIB_WINDOW);
+  if (c[mode].length > CFG.latency.window) c[mode] = c[mode].slice(-CFG.latency.window);
   calibSave(c);
 }
 
@@ -1463,9 +1580,9 @@ function calibPush(mode, rate) {
 function calibSample(mode) {
   const c = calib();
   const own = c[mode] || [];
-  if (own.length >= CALIB_MIN) return own;
+  if (own.length >= CFG.latency.minSamples) return own;
   const pooled = Object.values(c).filter(Array.isArray).flat();
-  return pooled.length >= CALIB_MIN ? pooled : null;
+  return pooled.length >= CFG.latency.minSamples ? pooled : null;
 }
 
 // Медиана и MAD: занятия в транспорте гарантируют выбросы, среднее здесь неприменимо.
@@ -1474,9 +1591,8 @@ function latencyThreshold(mode) {
   if (!xs) return null;
   const med = median(xs);
   const mad = median(xs.map(x => Math.abs(x - med)));
-  return med + CALIB_K * 1.4826 * mad;
+  return med + CFG.latency.madK * 1.4826 * mad;
 }
-const AI_CACHE_MAX = 500;
 
 function apiConfig() {
   try {
@@ -1487,21 +1603,32 @@ function apiConfig() {
 function mnCache() {
   try { return JSON.parse(localStorage.getItem(MN_STORE) || '{}'); } catch (e) { return {}; }
 }
+// Обрезает кэш ДО размера, а не на один ключ: удаление одного ключа не сводит
+// к потолку кэш, который уже больше него — например, накопленный до появления
+// потолка или после снижения лимита в настройках. Удаляются самые старые:
+// порядок ключей в объекте — порядок вставки.
+function trimCache(c, max) {
+  const keys = Object.keys(c);
+  for (let i = 0; i <= keys.length - max; i++) delete c[keys[i]];
+  return c;
+}
+
 function mnRemember(word, text) {
-  const c = mnCache();
+  // Потолка здесь не было вовсе, в отличие от соседнего кэша объяснений.
+  // При цели в 5000 слов кэш дорос бы до сотен килобайт и молча упёрся
+  // в лимит localStorage, где лежит и сама колода.
+  const c = trimCache(mnCache(), CFG.caches.mnMax);
   c[word] = text;
-  try { localStorage.setItem(MN_STORE, JSON.stringify(c)); } catch (e) {}
+  safeSet(MN_STORE, JSON.stringify(c));
 }
 
 function aiCache() {
   try { return JSON.parse(localStorage.getItem(AI_STORE) || '{}'); } catch (e) { return {}; }
 }
 function aiRemember(key, text) {
-  const c = aiCache();
-  const keys = Object.keys(c);
-  if (keys.length >= AI_CACHE_MAX) delete c[keys[0]];
+  const c = trimCache(aiCache(), CFG.caches.aiMax);
   c[key] = text;
-  try { localStorage.setItem(AI_STORE, JSON.stringify(c)); } catch (e) { /* переполнение — не критично */ }
+  safeSet(AI_STORE, JSON.stringify(c));
 }
 
 // Введённое слово тоже стоит выучить: раз оно подставилось, связь с русским значением шаткая
@@ -1732,7 +1859,7 @@ function logTypo(en, typed, rule) {
   try {
     const log = JSON.parse(localStorage.getItem(TYPO_LOG) || '[]');
     log.push({ t: Date.now(), en, typed, rule });
-    localStorage.setItem(TYPO_LOG, JSON.stringify(log.slice(-300)));
+    safeSet(TYPO_LOG, JSON.stringify(log.slice(-CFG.caches.typoLog)));
   } catch (e) {}
 }
 
@@ -1740,7 +1867,7 @@ function logTypo(en, typed, rule) {
 // Медленный или переписанный ответ — извлечение с усилием, и интервал должен быть короче.
 function confidenceQuality(mode, word) {
   if (answerEdits > 0) return 'good';
-  const rate = (Date.now() - answerStart) / (word.length + CALIB_OVERHEAD);
+  const rate = (Date.now() - answerStart) / (word.length + CFG.latency.lengthOffset);
   const th = latencyThreshold(mode);
   calibPush(mode, rate);
   if (th === null) return 'good';       // до накопления замеров ничего не различаем
@@ -2130,7 +2257,7 @@ function renderWords() {
     .map(c => {
       const status = !c.introduced
         ? '<span class="badge new">новое</span>'
-        : '<span class="badge">повтор ' + c.reps + '</span>';
+        : '<span class="badge">ступень ' + (c.step || 0) + '</span>';
       return `<tr>
         <td>${esc(c.en)}</td>
         <td>${esc(c.ru)}</td>
@@ -2296,16 +2423,50 @@ document.getElementById('dlSample').onclick = () => {
 };
 
 //============ Вкладка «Статистика» ============
+// Разбор и проверка лестницы. Убывающая ступень сломала бы миграцию молча:
+// ступень выбирается как наибольшая, чья длина не превышает интервал, и на
+// невозрастающем списке этот выбор перестаёт быть однозначным.
+function parseLadder(text) {
+  const parts = String(text).split(',').map(x => x.trim()).filter(Boolean);
+  if (parts.length < 2) return { error: 'нужно хотя бы две ступени' };
+  const nums = [];
+  for (const p of parts) {
+    if (!/^\d+$/.test(p)) return { error: '«' + p + '» — не целое число дней' };
+    const n = parseInt(p, 10);
+    if (n < 1) return { error: 'ступень должна быть не меньше 1 дня' };
+    if (nums.length && n <= nums[nums.length - 1]) {
+      return { error: 'ступени должны строго возрастать: ' + nums[nums.length - 1] + ' -> ' + n };
+    }
+    nums.push(n);
+  }
+  return { ladder: nums };
+}
+
+function renderLadder() {
+  const input = document.getElementById('ladderInput');
+  const hint = document.getElementById('ladderHint');
+  input.value = CFG.srs.ladder.join(', ');
+  const custom = !!(data.config.srs && data.config.srs.ladder);
+  const grad = CFG.srs.ladder.findIndex(v => v >= CFG.srs.graduatedDays);
+  hint.textContent = (custom ? '· своя лестница. ' : '· стандартная. ')
+    + 'Ступеней: ' + CFG.srs.ladder.length
+    + (grad >= 0 ? ', закрепление на ' + (grad + 1) + '-й' : ', закрепления не наступает')
+    + '. Числа подобраны на глаз, не из исследования.';
+}
+
 function renderStats() {
+  const warn = document.getElementById('storageWarn');
+  if (warn) { warn.hidden = !storageWarned; if (storageWarned) warn.textContent = STORAGE_WARN_TEXT; }
   document.getElementById('stTotal').textContent = data.cards.length;
-  document.getElementById('stLearned').textContent = inWorkCards(data).length + ' / ' + MAX_IN_WORK;
-  document.getElementById('stDone').textContent = data.cards.filter(c => (c.interval || 0) >= GRADUATED_DAYS).length;
+  document.getElementById('stLearned').textContent = inWorkCards(data).length + ' / ' + CFG.load.maxInWork;
+  document.getElementById('stDone').textContent = data.cards.filter(c => (c.interval || 0) >= CFG.srs.graduatedDays).length;
   document.getElementById('stDue').textContent = dueCards().length;
   document.getElementById('stStreak').textContent = data.streak;
   document.getElementById('goalInput').value = data.dailyGoal;
   document.getElementById('newPerDayInput').value = data.newPerDay;
   document.getElementById('leechInput').value = data.leechThreshold;
   renderLeeches();
+  renderLadder();
   renderProfile();
   renderApiSettings();
   updatePlanHint();
@@ -2328,12 +2489,12 @@ function renderLeeches() {
 function updatePlanHint() {
   const remaining = data.cards.filter(c => !c.introduced).length;
   // Новые слова входят не только по дневному лимиту, но и по мере освобождения места:
-  // пока в работе MAX_IN_WORK слов, очередь стоит, сколько бы ни стоял дневной лимит.
-  const free = Math.max(0, MAX_IN_WORK - inWorkCards(data).length);
+  // пока в работе CFG.load.maxInWork слов, очередь стоит, сколько бы ни стоял дневной лимит.
+  const free = Math.max(0, CFG.load.maxInWork - inWorkCards(data).length);
   document.getElementById('planHint').textContent = remaining === 0
     ? '· все слова уже введены'
     : free === 0
-      ? `· ${remaining} слов ждут очереди: в работе уже ${MAX_IN_WORK}, новые войдут по мере закрепления`
+      ? `· ${remaining} слов ждут очереди: в работе уже ${CFG.load.maxInWork}, новые войдут по мере закрепления`
       : `· ждут очереди ${remaining}, свободных мест сейчас ${free}`;
 }
 document.getElementById('goalInput').addEventListener('change', e => {
@@ -2345,10 +2506,10 @@ function renderProfile() {
   const p = data.profile;
   document.getElementById('devName').value = p.deviceName || '';
   document.getElementById('devPrimary').checked = !!p.isPrimary;
-  document.getElementById('examDate').value = p.examDate || '';
+  document.getElementById('examDate').value = CFG.srs.examDate || '';
   const hint = document.getElementById('examHint');
-  if (!p.examDate) { hint.textContent = 'без даты — бессрочный горизонт'; return; }
-  const days = Math.ceil((new Date(p.examDate) - Date.now()) / DAY);
+  if (!CFG.srs.examDate) { hint.textContent = 'без даты — бессрочный горизонт'; return; }
+  const days = Math.ceil((new Date(CFG.srs.examDate) - Date.now()) / DAY);
   hint.textContent = days > 0 ? `· осталось ${days} дн.` : '· дата уже прошла';
 }
 
@@ -2358,8 +2519,27 @@ document.getElementById('devName').addEventListener('change', e => {
 document.getElementById('devPrimary').addEventListener('change', e => {
   data.profile.isPrimary = e.target.checked; save(data);
 });
+document.getElementById('ladderInput').addEventListener('change', e => {
+  const r = parseLadder(e.target.value);
+  const hint = document.getElementById('ladderHint');
+  if (r.error) {
+    // молча не откатываем: иначе непонятно, применилось значение или нет
+    hint.textContent = '· не принято: ' + r.error;
+    return;
+  }
+  setUserConfig('srs', 'ladder', r.ladder);
+  clampIntervals(data);
+  save(data);
+  renderLadder();
+  renderStats();
+});
+document.getElementById('ladderReset').onclick = () => {
+  setUserConfig('srs', 'ladder', null);
+  clampIntervals(data); save(data); renderLadder(); renderStats();
+};
 document.getElementById('examDate').addEventListener('change', e => {
-  data.profile.examDate = e.target.value || null; save(data); renderProfile();
+  setUserConfig('srs', 'examDate', e.target.value || null);
+  clampIntervals(data); save(data); renderProfile();
 });
 
 //============ Настройки разбора через ИИ ============
