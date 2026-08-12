@@ -553,12 +553,22 @@
       <span class="muted-note" id="capHint"></span>
     </div>
 
+    <h3 class="section-label">До экзамена</h3>
+    <div id="outlookBox" hidden></div>
+
     <h3 class="section-label">Нагрузка вперёд</h3>
     <p class="muted-note" style="margin:0 0 10px">
       Грубая оценка по текущим интервалам: сколько повторений придёт в каждую неделю,
       если ничего не проваливать. Провалы добавят сверху, поэтому это нижняя граница.
     </p>
     <table id="forecastTable" style="width:100%"></table>
+
+    <h3 class="section-label">Упоры в предел</h3>
+    <p class="muted-note" style="margin:0 0 10px">
+      Предел выбран на глаз и проверяется практикой. Здесь видно, как часто очередь
+      была длиннее него и сколько карточек не попало в тот день.
+    </p>
+    <div id="capLogBox"></div>
 
     <h3 class="section-label">Настройки</h3>
     <div class="goal-row">
@@ -1284,6 +1294,25 @@ function parkExcess(d) {
 }
 
 // Сколько повторений уже сделано сегодня (счётчик сбрасывается по дате).
+// Журнал упоров в предел: сколько раз очередь была длиннее, чем можно взять,
+// и сколько карточек не попало. Предел выбран эвристически и проверяется практикой,
+// поэтому нужен факт, а не ощущение. Строка на сутки, хранится 30 последних.
+const CAP_LOG_DAYS = 30;
+function noteCapPressure(dueCount, done) {
+  if (!Array.isArray(data.capLog)) data.capLog = [];
+  const d = today();
+  let row = data.capLog[data.capLog.length - 1];
+  if (!row || row.d !== d) {
+    row = { d: d, due: 0, done: 0, deferred: 0 };
+    data.capLog.push(row);
+    if (data.capLog.length > CAP_LOG_DAYS) data.capLog = data.capLog.slice(-CAP_LOG_DAYS);
+  }
+  // пик за сутки, а не последнее значение: важно, насколько очередь превышала предел
+  row.due = Math.max(row.due, dueCount);
+  row.done = Math.max(row.done, done);
+  row.deferred = Math.max(row.deferred, dueCount - done);
+}
+
 function sameDay(a, b) {
   const x = new Date(a), y = new Date(b);
   return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
@@ -1328,6 +1357,7 @@ function pickCard() {
     if (reviews.length <= CFG.load.dailyReviewCap - reviewsDoneToday()) return reviews[0];
     // Предел связывает: обычный порядок «сначала самое просроченное» уступает
     // место выборке по покрытию, иначе часть колоды не будет просмотрена вовсе.
+    noteCapPressure(reviews.length, CFG.load.dailyReviewCap - reviewsDoneToday());
     if (reviewsDoneToday() < CFG.load.dailyReviewCap) return reviews.slice().sort(byCoverage)[0];
     // предел выбран — новые слова сегодня тоже не начинаем
     return overLimit ? reviews[0] : null;
@@ -2503,6 +2533,104 @@ function renderLadder() {
     + '. Числа подобраны на глаз, не из исследования.';
 }
 
+// Сколько повторений потребует одна карточка от сегодня до экзамена, если
+// ничего не проваливать. Потолок интервала сжимается к дате, поэтому цепочка
+// уплотняется сама, и слово приходит всё чаще.
+function demandOf(due, step, until) {
+  const now = Date.now();
+  let n = 0, t = due, st = step || 0;
+  for (let guard = 0; guard < 400 && t <= until; guard++) {
+    if (t >= now) n++;
+    st++;
+    const left = Math.ceil((until - t) / DAY);
+    const cap = left <= 0 ? CFG.srs.maxIntervalNoDeadline : Math.max(1, Math.floor(left / CFG.srs.examCapDivisor));
+    t += Math.min(CFG.srs.ladder[Math.min(st, CFG.srs.ladder.length) - 1], cap) * DAY;
+  }
+  return n;
+}
+
+// Раннее предупреждение. Отвечает не «будет тяжело», а «столько слов не успеет
+// пройти проверку и с такого числа надо перестать добавлять новые».
+//
+// Ключевой факт, из которого всё следует: перед экзаменом потолок интервала
+// сжимается до суток, поэтому просроченной становится ВСЯ колода, и пик равен
+// её размеру. Предел эту задачу не решает, а только обрезает — непроверенные
+// слова никуда не деваются, они просто не попадают в очередь. Поэтому
+// предупреждать надо заранее, а не в последние три дня.
+function examOutlook() {
+  const exam = CFG.srs.examDate;
+  if (!exam) return null;
+  const until = new Date(exam + 'T00:00:00').getTime();
+  const days = Math.ceil((until - Date.now()) / DAY);
+  if (days <= 0) return null;
+
+  const inRotation = data.cards.filter(c => c.due !== null);
+  const waiting = data.cards.filter(c => c.due === null).length;
+  const cap = CFG.load.dailyReviewCap;
+  const capacity = cap * days;
+
+  // Спрос от слов, которые уже в обороте
+  let demand = inRotation.reduce((sum, c) => sum + demandOf(c.due, c.step, until), 0);
+
+  // Слова, ждущие очереди, тоже придётся проверять — их нельзя не считать, иначе
+  // прогноз скажет «всё в порядке», пока сотни слов стоят и не успеют войти вовсе.
+  // Входят они по дневной норме, поэтому чем позже слово войдёт, тем меньше
+  // повторений успеет получить.
+  const perDay = data.newPerDay > 0 ? data.newPerDay : 0;
+  const canEnter = perDay > 0 ? Math.min(waiting, perDay * days) : 0;
+  const neverEnter = waiting - canEnter;
+  for (let i = 0; i < canEnter; i++) {
+    const enterAt = Date.now() + Math.floor(i / perDay) * DAY;
+    demand += demandOf(enterAt, 0, until);
+  }
+
+  // Сколько слов вообще будет в обороте к дате
+  const deck = inRotation.length + canEnter;
+  // Нижняя граница: столько слов не получит даже одной проверки в финальном проходе.
+  // Симуляция даёт результат ХУЖЕ (провалы отнимают места), поэтому «не меньше».
+  const unchecked = Math.max(0, deck - capacity) + neverEnter;
+  const sweepDays = Math.ceil(deck / cap);
+  const daysToEnterAll = perDay > 0 ? Math.ceil(waiting / perDay) : Infinity;
+
+  return { days, deck, waiting, canEnter, neverEnter, cap, capacity, demand,
+           unchecked, sweepDays, daysToEnterAll, until, over: demand > capacity };
+}
+
+function fmtDate(ms) {
+  return new Date(ms).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+function renderOutlook() {
+  const box = document.getElementById('outlookBox');
+  const o = examOutlook();
+  if (!o) { box.hidden = true; return; }
+  box.hidden = false;
+  const rows = [];
+  rows.push(['До экзамена', o.days + ' дн · ' + fmtDate(o.until)]);
+  rows.push(['Будет в обороте', o.deck + ' слов' + (o.waiting ? ' (ждут очереди ' + o.waiting + ')' : '')]);
+  rows.push(['Ёмкость до даты', o.capacity + ' повторений при ' + o.cap + '/день']);
+  rows.push(['Потребуется', o.demand + ' повторений' + (o.over ? ' — БОЛЬШЕ ёмкости' : '')]);
+  rows.push(['Полный проход колоды', o.sweepDays + ' дн · последний начнётся ' + fmtDate(o.until - o.sweepDays * DAY)]);
+  if (o.neverEnter > 0) {
+    rows.push(['Не успеют войти вовсе', o.neverEnter + ' слов при норме ' + data.newPerDay + '/день'
+      + ' — на ввод всей очереди нужно ' + o.daysToEnterAll + ' дн']);
+  }
+  if (o.unchecked > 0) rows.push(['НЕ БУДЕТ ПРОВЕРЕНО', 'не меньше ' + o.unchecked + ' слов']);
+  // Действие, а не констатация: с какого дня добавлять новые уже бессмысленно
+  if (o.over || o.unchecked > 0) {
+    const room = Math.max(0, o.capacity - o.demand);
+    const perNew = Math.max(1, demandOf(Date.now(), 0, o.until));
+    const fits = Math.floor(room / perNew);
+    const d = data.newPerDay > 0 ? Math.floor(fits / data.newPerDay) : 0;
+    rows.push(['Что делать', fits > 0
+      ? 'помещается ещё ' + fits + ' новых слов — остановить ввод к ' + fmtDate(Date.now() + d * DAY)
+      : 'остановить ввод новых слов сейчас или поднять предел']);
+  }
+  box.innerHTML = '<table style="width:100%">' + rows.map(r =>
+    '<tr><td class="muted-note">' + r[0] + '</td><td style="text-align:right'
+    + (/БОЛЬШЕ|не меньше|остановить/.test(r[1]) ? ';color:var(--no)' : '') + '">' + esc(r[1]) + '</td></tr>').join('') + '</table>';
+}
+
 // Прогноз нагрузки. Считается по текущим срокам без симуляции: слово, у которого
 // срок попадает в неделю, придёт в эту неделю, и дальше — через свой следующий
 // интервал. Провалы не моделируются, поэтому оценка заведомо заниженная.
@@ -2555,6 +2683,23 @@ function renderCap() {
     : '· примерно ' + Math.round(CFG.load.dailyReviewCap / 5) + ' минут в день; заучивание сверх предела не обрывается';
 }
 
+function renderCapLog() {
+  const box = document.getElementById('capLogBox');
+  const log = Array.isArray(data.capLog) ? data.capLog : [];
+  if (!log.length) {
+    box.innerHTML = '<span class="muted-note">· очередь ни разу не упиралась в предел</span>';
+    return;
+  }
+  const rows = log.slice(-14).reverse().map(r =>
+    '<tr><td>' + esc(r.d) + '</td><td style="text-align:right">' + r.due + '</td>'
+    + '<td style="text-align:right">' + r.done + '</td>'
+    + '<td style="text-align:right;color:var(--no)">' + r.deferred + '</td></tr>').join('');
+  box.innerHTML = '<table style="width:100%"><tr><td class="muted-note">день</td>'
+    + '<td class="muted-note" style="text-align:right">в очереди</td>'
+    + '<td class="muted-note" style="text-align:right">предел</td>'
+    + '<td class="muted-note" style="text-align:right">не попало</td></tr>' + rows + '</table>';
+}
+
 function renderStats() {
   const warn = document.getElementById('storageWarn');
   if (warn) { warn.hidden = !storageWarned; if (storageWarned) warn.textContent = STORAGE_WARN_TEXT; }
@@ -2569,7 +2714,9 @@ function renderStats() {
   renderLeeches();
   renderLadder();
   renderCap();
+  renderOutlook();
   renderForecast();
+  renderCapLog();
   renderProfile();
   renderApiSettings();
   updatePlanHint();
