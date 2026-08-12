@@ -1,0 +1,96 @@
+{
+  "v": 1,
+  "l1": "ru",
+  "note": "Ложные друзья переводчика для пары ru-en. Поле src обязательно у каждой пары: 'assistant' означает, что пара составлена моделью и НЕ сверена со словарём — такие пары надо проверить глазами и переставить в 'verified'. Поле level заполняется по мере проверки; null означает 'уровень не определён'.",
+  "pairs": [
+    { "en": "magazine", "looks": "магазин", "en_means": "журнал", "ru_means": "shop, store",
+      "ex": "I bought a magazine at the shop.", "level": "A1", "src": "assistant" },
+
+    { "en": "family", "looks": "фамилия", "en_means": "семья", "ru_means": "surname, last name",
+      "ex": "My family is big, and my surname is Petrova.", "level": "A1", "src": "assistant" },
+
+    { "en": "list", "looks": "лист", "en_means": "список", "ru_means": "leaf, sheet",
+      "ex": "Write a list on a sheet of paper.", "level": "A1", "src": "assistant" },
+
+    { "en": "artist", "looks": "артист", "en_means": "художник", "ru_means": "actor, performer",
+      "ex": "The artist painted a picture; the actor played a role.", "level": "A2", "src": "assistant" },
+
+    { "en": "camera", "looks": "камера", "en_means": "фотоаппарат", "ru_means": "cell, chamber",
+      "ex": "She took a photo with her camera.", "level": "A1", "src": "assistant" },
+
+    { "en": "data", "looks": "дата", "en_means": "данные", "ru_means": "date",
+      "ex": "The data is correct, but the date is wrong.", "level": "A2", "src": "assistant" },
+
+    { "en": "mark", "looks": "марка", "en_means": "отметка, оценка", "ru_means": "stamp, brand",
+      "ex": "She got a good mark at school.", "level": "A2", "src": "assistant" },
+
+    { "en": "desert", "looks": "десерт", "en_means": "пустыня", "ru_means": "dessert",
+      "ex": "The Sahara is a desert; ice cream is a dessert.", "level": "A2", "src": "assistant" },
+
+    { "en": "novel", "looks": "новелла", "en_means": "роман", "ru_means": "short story",
+      "ex": "War and Peace is a long novel.", "level": "A2", "src": "assistant" },
+
+    { "en": "personal", "looks": "персонал", "en_means": "личный", "ru_means": "staff, personnel",
+      "ex": "This is my personal phone, not the staff phone.", "level": "A2", "src": "assistant" },
+
+    { "en": "stool", "looks": "стул", "en_means": "табурет", "ru_means": "chair",
+      "ex": "He sat on a stool, not on a chair.", "level": "A2", "src": "assistant" },
+
+    { "en": "biscuit", "looks": "бисквит", "en_means": "печенье", "ru_means": "sponge cake",
+      "ex": "I like tea with a biscuit.", "level": "A2", "src": "assistant" },
+
+    { "en": "cabinet", "looks": "кабинет", "en_means": "шкаф", "ru_means": "office, study",
+      "ex": "The cups are in the kitchen cabinet.", "level": "A2", "src": "assistant" },
+
+    { "en": "clay", "looks": "клей", "en_means": "глина", "ru_means": "glue",
+      "ex": "The pot is made of clay.", "level": "A2", "src": "assistant" },
+
+    { "en": "receipt", "looks": "рецепт", "en_means": "чек, квитанция", "ru_means": "recipe; prescription",
+      "ex": "Keep the receipt from the shop.", "level": "A2", "src": "assistant" },
+
+    { "en": "accurate", "looks": "аккуратный", "en_means": "точный", "ru_means": "neat, tidy",
+      "ex": "His answer was accurate.", "level": "B1", "src": "assistant" },
+
+    { "en": "actual", "looks": "актуальный", "en_means": "фактический, настоящий", "ru_means": "relevant, current",
+      "ex": "The actual price was higher.", "level": "B1", "src": "assistant" },
+
+    { "en": "intelligent", "looks": "интеллигентный", "en_means": "умный", "ru_means": "cultured, well-mannered",
+      "ex": "She is an intelligent student.", "level": "B1", "src": "assistant" },
+
+    { "en": "sympathy", "looks": "симпатия", "en_means": "сочувствие", "ru_means": "liking, attraction",
+      "ex": "He felt sympathy for her loss.", "level": "B1", "src": "assistant" },
+
+    { "en": "fabric", "looks": "фабрика", "en_means": "ткань", "ru_means": "factory",
+      "ex": "This fabric is soft.", "level": "B1", "src": "assistant" },
+
+    { "en": "decade", "looks": "декада", "en_means": "десятилетие", "ru_means": "ten days",
+      "ex": "He lived there for a decade.", "level": "B1", "src": "assistant" },
+
+    { "en": "prospect", "looks": "проспект", "en_means": "перспектива", "ru_means": "avenue",
+      "ex": "There is a prospect of rain.", "level": "B1", "src": "assistant" },
+
+    { "en": "repetition", "looks": "репетиция", "en_means": "повторение", "ru_means": "rehearsal",
+      "ex": "Repetition helps you remember.", "level": "B1", "src": "assistant" },
+
+    { "en": "realize", "looks": "реализовать", "en_means": "осознавать, понимать", "ru_means": "to implement, to carry out",
+      "ex": "I didn't realize it was so late.", "level": "B1", "src": "assistant" },
+
+    { "en": "pretend", "looks": "претендовать", "en_means": "притворяться", "ru_means": "to claim, to apply for",
+      "ex": "Don't pretend you are asleep.", "level": "B1", "src": "assistant" },
+
+    { "en": "conductor", "looks": "кондуктор", "en_means": "дирижёр", "ru_means": "ticket collector",
+      "ex": "The conductor raised his baton.", "level": "B1", "src": "assistant" },
+
+    { "en": "mayor", "looks": "майор", "en_means": "мэр", "ru_means": "major (military rank)",
+      "ex": "The mayor of the city gave a speech.", "level": "B1", "src": "assistant" },
+
+    { "en": "physician", "looks": "физик", "en_means": "врач", "ru_means": "physicist",
+      "ex": "Ask your physician about the pain.", "level": "B1", "src": "assistant" },
+
+    { "en": "insult", "looks": "инсульт", "en_means": "оскорбление", "ru_means": "stroke",
+      "ex": "His words were an insult.", "level": "B1", "src": "assistant" },
+
+    { "en": "velvet", "looks": "вельвет", "en_means": "бархат", "ru_means": "corduroy",
+      "ex": "She wore a velvet dress.", "level": "B1", "src": "assistant" }
+  ]
+}

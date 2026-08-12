@@ -563,6 +563,20 @@
     </p>
     <table id="forecastTable" style="width:100%"></table>
 
+    <h3 class="section-label">Ложные друзья</h3>
+    <p class="muted-note" style="margin:0 0 10px">
+      Слова, которые звучат как русские, но значат другое. Набор ведётся для языковой
+      пары целиком; ловушка включается, когда такое слово появляется в твоей колоде.
+      Разбор идёт вне очереди и не меняет расписание.
+    </p>
+    <div id="trapsBox"></div>
+    <div class="goal-row">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+        <input id="trapsEnabled" type="checkbox" style="width:auto" />
+        Показывать ловушки
+      </label>
+    </div>
+
     <h3 class="section-label">Контрольный тест</h3>
     <p class="muted-note" style="margin:0 0 10px">
       Проверяет слова <b>раньше</b> назначенного срока и не меняет расписание.
@@ -650,6 +664,15 @@
   </section>
 
   <!-- ПРОСМОТР КОЛОДЫ: чтение без оценки -->
+  <!-- ЛОВУШКА НА ЛОЖНОГО ДРУГА: вне очереди, расписание не меняется -->
+  <div class="modal-overlay" id="trapModal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="trapClose" title="Закрыть"><svg class="ico"><use href="#i-cross"/></svg></button>
+      <h2>Похоже на русское слово</h2>
+      <div id="trapBody"></div>
+    </div>
+  </div>
+
   <!-- КОНТРОЛЬНЫЙ ТЕСТ: измерение, расписание не меняется -->
   <div class="modal-overlay" id="testModal" hidden>
     <div class="modal">
@@ -808,6 +831,19 @@ const CONFIG_DEFAULTS = {
     minStep: 5,
     // Слово, проверенное вчера, измерять бессмысленно. Доля назначенного интервала.
     minFraction: 0.33
+  },
+  traps: {
+    // Ложные друзья существуют для ПАРЫ ЯЗЫКОВ, а не для колоды: набор ведётся
+    // для L1 целиком, а ловушка активируется, когда слово из набора появляется
+    // у пользователя — сегодня, через месяц или никогда.
+    enabled: true,
+    perDay: 5,              // Э: сколько ловушек за сутки максимум
+    // Уровни, которые показываем. null = все. Место оставлено на будущее:
+    // часть ложных друзей опасна только для продвинутых, и когда у пользователя
+    // появится уровень, здесь встанет фильтр.
+    levels: null,
+    // Через сколько дней пару можно показать повторно, если она была пройдена (Э).
+    repeatAfterDays: 30
   },
   caches: {
     // ЭВРИСТИКА. Раньше потолка у кэша мнемоник не было вовсе, и при цели
@@ -1647,6 +1683,137 @@ function earliestFor(stepIndex) {
   return best;
 }
 
+//============ Ловушки на ложных друзей ============
+// Набор лежит отдельным файлом на язык и грузится лениво: пользователю с другим
+// L1 русский набор не нужен, а качать он его не должен. Отсутствие файла —
+// штатная ситуация: ловушки просто не включаются, остальное работает как работало.
+let ffPairs = null;        // null = ещё не грузили, [] = набора нет
+let ffLoading = null;
+
+async function loadFalseFriends() {
+  if (ffPairs !== null) return ffPairs;
+  if (ffLoading) return ffLoading;
+  const l1 = (data.profile && data.profile.l1) || 'ru';
+  ffLoading = fetch('./data/false-friends-' + l1 + '.json')
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => {
+      ffPairs = (d && Array.isArray(d.pairs)) ? d.pairs : [];
+      ffVersion = d && d.v || 0;
+      return ffPairs;
+    })
+    .catch(() => { ffPairs = []; return ffPairs; });   // нет сети и нет кэша — тоже штатно
+  return ffLoading;
+}
+let ffVersion = 0;
+
+const TRAP_STORE = 'wordnaut-traps';
+function trapLog() {
+  try { return JSON.parse(localStorage.getItem(TRAP_STORE) || '[]'); } catch (e) { return []; }
+}
+
+// Ловушка активна, если слово из набора есть в колоде и уже введено.
+// Набор ни от чьей колоды не зависит — пересечение считается на лету.
+function activeTraps() {
+  if (!ffPairs || !ffPairs.length) return [];
+  const lv = CFG.traps.levels;
+  const byEn = {};
+  for (const c of data.cards) if (c.introduced) byEn[normalize(c.en)] = c;
+  const log = trapLog();
+  const lastSeenOf = {};
+  for (const r of log) lastSeenOf[r.en] = Math.max(lastSeenOf[r.en] || 0, r.t);
+  const failedOf = {};
+  for (const r of log) if (!r.ok) failedOf[r.en] = (failedOf[r.en] || 0) + 1;
+
+  return ffPairs
+    .filter(p => byEn[normalize(p.en)])
+    .filter(p => !lv || !p.level || lv.indexOf(p.level) >= 0)
+    .filter(p => {
+      const last = lastSeenOf[p.en];
+      return !last || Date.now() - last >= CFG.traps.repeatAfterDays * DAY;
+    })
+    // Впереди те, на которых уже попадались: ошибка повторится, если её не разобрать.
+    .sort((a, b) => (failedOf[b.en] || 0) - (failedOf[a.en] || 0))
+    .map(p => ({ pair: p, card: byEn[normalize(p.en)] }));
+}
+
+function trapsDoneToday() {
+  const d = today();
+  return trapLog().filter(r => r.d === d).length;
+}
+
+function trapsAvailable() {
+  return CFG.traps.enabled && trapsDoneToday() < CFG.traps.perDay && activeTraps().length > 0;
+}
+
+let trapRun = null;
+
+function openTraps() {
+  const list = activeTraps().slice(0, CFG.traps.perDay - trapsDoneToday());
+  if (!list.length) return;
+  trapRun = { list: list, at: 0 };
+  document.getElementById('trapModal').hidden = false;
+  renderTrap();
+}
+function closeTraps() {
+  document.getElementById('trapModal').hidden = true;
+  trapRun = null;
+}
+
+function renderTrap() {
+  const r = trapRun;
+  const body = document.getElementById('trapBody');
+  if (r.at >= r.list.length) {
+    body.innerHTML = '<p>Готово. Разобрано ловушек: ' + r.list.length + '.</p>'
+      + '<div class="btn-row" style="justify-content:flex-end">'
+      + '<button class="btn-primary" id="trapDone">Закрыть</button></div>';
+    document.getElementById('trapDone').onclick = closeTraps;
+    return;
+  }
+  const p = r.list[r.at].pair;
+  // Ловушка в узнавании: подставляем ложное созвучие как один из вариантов.
+  // Проверять надо именно различение, а не припоминание — ошибка здесь в том,
+  // что человек уверенно выбирает знакомое на слух значение.
+  const wrong = data.cards
+    .filter(c => c.introduced && normalize(c.en) !== normalize(p.en))
+    .map(c => c.ru).filter((v, i, a) => a.indexOf(v) === i && v !== p.en_means);
+  shuffle(wrong);
+  const opts = shuffle([p.en_means, p.ru_means, ...wrong.slice(0, 2)]);
+  body.innerHTML = '<span class="muted-note">' + (r.at + 1) + ' из ' + r.list.length
+    + ' · не влияет на расписание</span>'
+    + '<div class="card"><div class="word">' + esc(p.en) + '</div></div>'
+    + '<div class="choices" id="trapChoices">'
+    + opts.map((o, i) => '<button class="choice" data-v="' + esc(o) + '"><span class="num">'
+        + (i + 1) + '</span>' + esc(o) + '</button>').join('')
+    + '</div><div class="feedback" id="trapFb"></div><div id="trapExplain"></div>';
+
+  document.querySelectorAll('#trapChoices .choice').forEach(btn => {
+    btn.onclick = () => {
+      const ok = btn.dataset.v === p.en_means;
+      const trapped = btn.dataset.v === p.ru_means;
+      document.querySelectorAll('#trapChoices .choice').forEach(b => {
+        b.style.pointerEvents = 'none';
+        if (b.dataset.v === p.en_means) b.classList.add('correct');
+        else if (b === btn) b.classList.add('wrong');
+      });
+      const fb = document.getElementById('trapFb');
+      fb.textContent = ok ? 'Верно' : (trapped ? 'Это и есть ловушка' : 'Неверно');
+      fb.className = 'feedback ' + (ok ? 'ok' : 'no');
+      document.getElementById('trapExplain').innerHTML =
+        '<div class="rescue-hint"><b>' + esc(p.en) + '</b> — это <b>' + esc(p.en_means) + '</b>, '
+        + 'хотя звучит как «' + esc(p.looks) + '».<br>'
+        + 'А «' + esc(p.looks) + '» по-английски — <b>' + esc(p.ru_means) + '</b>.'
+        + (p.ex ? '<br><span class="muted-note">' + esc(p.ex) + '</span>' : '') + '</div>'
+        + '<div class="btn-row" style="justify-content:flex-end">'
+        + '<button class="btn-primary" id="trapNext">Дальше</button></div>';
+      // Вне очереди: grade() не вызывается, расписание карточки не меняется.
+      const log = trapLog();
+      log.push({ t: Date.now(), d: today(), en: p.en, ok: ok, trapped: trapped, v: ffVersion });
+      safeSet(TRAP_STORE, JSON.stringify(log.slice(-500)));
+      document.getElementById('trapNext').onclick = () => { r.at++; renderTrap(); };
+    };
+  });
+}
+
 //============ Контрольный тест: измерение кривой между повторениями ============
 const TEST_STORE = 'wordnaut-tests';
 function testHistory() {
@@ -2180,6 +2347,14 @@ function renderCard() {
       </div>`;
     const ahead = document.getElementById('aheadBtn');
     if (ahead) ahead.onclick = () => { overLimit = true; nextCard(); };
+    if (trapsAvailable()) {
+      const b = document.createElement('button');
+      b.className = 'btn-ghost';
+      b.style.cssText = 'margin-top:10px';
+      b.textContent = 'Разобрать ложных друзей (' + Math.min(activeTraps().length, CFG.traps.perDay - trapsDoneToday()) + ')';
+      b.onclick = openTraps;
+      area.querySelector('.empty').appendChild(b);
+    }
     if (testDue()) {
       const t = document.createElement('button');
       t.className = 'btn-ghost';
@@ -2625,8 +2800,14 @@ function renderBrowse() {
 document.getElementById('browseBtn').onclick = openBrowse;
 document.getElementById('browseClose').onclick = closeBrowse;
 document.getElementById('testClose').onclick = closeTest;
+document.getElementById('trapClose').onclick = closeTraps;
+document.getElementById('trapsEnabled').addEventListener('change', e => {
+  setUserConfig('traps', 'enabled', e.target.checked);
+  renderTraps();
+});
 document.getElementById('testEnabled').addEventListener('change', e => {
   setUserConfig('test', 'enabled', e.target.checked);
+  renderTraps();
   renderTestHistory();
 });
 document.getElementById('browsePrev').onclick = () => browseStep(-1);
@@ -3119,6 +3300,43 @@ function renderRetention() {
     + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '') + '</span>';
 }
 
+function renderTraps() {
+  const box = document.getElementById('trapsBox');
+  document.getElementById('trapsEnabled').checked = !!CFG.traps.enabled;
+  if (ffPairs === null) { box.innerHTML = '<span class="muted-note">· набор загружается</span>'; return; }
+  if (!ffPairs.length) {
+    box.innerHTML = '<span class="muted-note">· набора для этого языка нет — ловушки выключены</span>';
+    return;
+  }
+  const active = activeTraps().length;
+  const inDeck = ffPairs.filter(p => data.cards.some(c => c.introduced && normalize(c.en) === normalize(p.en))).length;
+  const log = trapLog();
+  const byEn = {};
+  for (const r of log) {
+    if (!byEn[r.en]) byEn[r.en] = { n: 0, ok: 0, trapped: 0 };
+    byEn[r.en].n++;
+    if (r.ok) byEn[r.en].ok++;
+    if (r.trapped) byEn[r.en].trapped++;
+  }
+  // Впереди те, на которых попадались чаще: это и есть смысл всей затеи.
+  const rows = Object.keys(byEn)
+    .sort((a, b) => (byEn[b].trapped - byEn[a].trapped) || (byEn[b].n - byEn[a].n))
+    .slice(0, 12)
+    .map(en => '<tr><td><b>' + esc(en) + '</b></td>'
+      + '<td style="text-align:right">' + byEn[en].ok + ' из ' + byEn[en].n + '</td>'
+      + '<td style="text-align:right' + (byEn[en].trapped ? ';color:var(--no)' : '') + '">'
+      + (byEn[en].trapped ? 'попалась ' + byEn[en].trapped + '×' : '—') + '</td></tr>').join('');
+  const unverified = ffPairs.filter(p => p.src !== 'verified').length;
+  box.innerHTML = '<span class="muted-note" style="display:block;margin-bottom:8px">'
+    + 'В наборе ' + ffPairs.length + ' пар, из них в твоей колоде ' + inDeck
+    + ', готовы к показу ' + active
+    + (unverified ? ' · не сверено со словарём: ' + unverified : '') + '</span>'
+    + (rows ? '<table style="width:100%"><tr><td class="muted-note">слово</td>'
+        + '<td class="muted-note" style="text-align:right">верно</td>'
+        + '<td class="muted-note" style="text-align:right">ловушка</td></tr>' + rows + '</table>'
+      : '<span class="muted-note">· разборов ещё не было</span>');
+}
+
 function renderTestHistory() {
   const box = document.getElementById('testHistBox');
   document.getElementById('testEnabled').checked = !!CFG.test.enabled;
@@ -3375,6 +3593,14 @@ function shuffle(a) {
 
 // Старт
 nextCard();
+
+// Набор ложных друзей грузим в фоне: экран не ждёт его, а когда он приедет,
+// ловушки становятся доступны сами. Нет файла или сети — ffPairs станет пустым,
+// и функция просто не включится.
+loadFalseFriends().then(() => {
+  if (document.getElementById('trapsBox')) renderTraps();
+  if (!current) renderCard();     // экран «план выполнен» мог быть построен до загрузки
+});
 
 // Офлайн-режим на телефоне. В оболочке на маке он не нужен и только мешал бы обновлениям.
 // Просим браузер не вытеснять наши данные при нехватке места — прогресс хранится только здесь

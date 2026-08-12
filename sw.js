@@ -1,4 +1,4 @@
-const CACHE = 'wordnaut-v28';
+const CACHE = 'wordnaut-v29';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,9 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
+  // Набор ложных друзей для языка по умолчанию. Наборы других L1 подхватит
+  // runtime-кэш ниже при первом обращении — заранее качать их не нужно.
+  './data/false-friends-ru.json',
 ];
 
 self.addEventListener('install', e => {
