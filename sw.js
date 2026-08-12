@@ -1,4 +1,4 @@
-const CACHE = 'wordnaut-v33';
+const CACHE = 'wordnaut-v34';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   // Набор ложных друзей для языка по умолчанию. Наборы других L1 подхватит
   // runtime-кэш ниже при первом обращении — заранее качать их не нужно.
   './data/false-friends-ru.json',
+  './data/confusions-ru.json',
 ];
 
 self.addEventListener('install', e => {

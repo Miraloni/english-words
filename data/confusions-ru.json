@@ -1,0 +1,1188 @@
+{
+ "v": 1,
+ "l1": "ru",
+ "note": "Разбор близких слов. kind: rule — грамматическое правило, проверяется чтением справочника; contrast — противопоставление значений, прочитано автором; nuance — оттенок употребления, НЕ показывается при разборе ошибки (в момент ошибки оттенок не помогает), ждёт экрана слова; pending — спорное, не показывается до решения владельца. src: verified-dictionary — подтверждено внешним источником; assistant-read — только прочитано автором, это не сверка.",
+ "entries": {
+  "get|take": {
+   "text": "take — берёшь и уносишь сама; get — получаешь то, что дают, или добываешь",
+   "kind": "contrast",
+   "ex": [
+    "I got a letter. — Я получила письмо.",
+    "Take an umbrella. — Возьми зонт."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "say|tell": {
+   "text": "say — что сказано; tell — кому сказано, всегда с адресатом",
+   "kind": "contrast",
+   "ex": [
+    "She said hello. — Она сказала «привет».",
+    "She told me the truth. — Она сказала мне правду."
+   ],
+   "src": "assistant-read"
+  },
+  "speak|talk": {
+   "text": "speak — говорить вообще, владеть языком; talk — беседовать с кем-то",
+   "kind": "contrast",
+   "ex": [
+    "I speak English. — Я говорю по-английски.",
+    "We talked all night. — Мы проговорили всю ночь."
+   ],
+   "src": "assistant-read"
+  },
+  "do|make": {
+   "text": "do — выполнять действие, работу; make — создавать, производить",
+   "kind": "contrast",
+   "ex": [
+    "Do your homework. — Делай уроки.",
+    "She made a cake. — Она испекла торт."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "learn|study": {
+   "text": "learn — выучить, получить результат; study — учиться, сам процесс",
+   "kind": "contrast",
+   "ex": [
+    "I learned the word. — Я выучила слово.",
+    "I study at university. — Я учусь в университете."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "learn|teach": {
+   "text": "learn — учиться самой; teach — учить кого-то другого",
+   "kind": "contrast",
+   "ex": [
+    "She learns fast. — Она быстро учится.",
+    "She teaches English. — Она преподаёт английский."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "look|see": {
+   "text": "look — смотреть намеренно; see — видеть, замечать без усилия",
+   "kind": "contrast",
+   "ex": [
+    "Look at me! — Посмотри на меня!",
+    "I see a bird. — Я вижу птицу."
+   ],
+   "src": "assistant-read",
+   "glosses": "НИ ОДНОЙ"
+  },
+  "see|watch": {
+   "text": "see — просто видеть; watch — следить за чем-то движущимся",
+   "kind": "contrast",
+   "ex": [
+    "I saw him yesterday. — Я видела его вчера.",
+    "We watched a film. — Мы смотрели фильм."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "look|watch": {
+   "text": "look — бросить взгляд; watch — наблюдать какое-то время",
+   "kind": "contrast",
+   "ex": [
+    "Look out of the window. — Выгляни в окно.",
+    "She watched the kids. — Она следила за детьми."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "hear|listen": {
+   "text": "hear — слышать непроизвольно; listen — слушать намеренно",
+   "kind": "contrast",
+   "ex": [
+    "I hear a noise. — Я слышу шум.",
+    "Listen to me. — Послушай меня."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "borrow|lend": {
+   "text": "borrow — взять взаймы у кого-то; lend — дать взаймы кому-то",
+   "kind": "contrast",
+   "ex": [
+    "Can I borrow your pen? — Можно одолжить твою ручку?",
+    "I lent him money. — Я одолжила ему денег."
+   ],
+   "src": "assistant-read"
+  },
+  "come|go": {
+   "text": "come — двигаться к говорящему; go — от говорящего",
+   "kind": "contrast",
+   "ex": [
+    "Come here! — Иди сюда!",
+    "Go home. — Иди домой."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "bring|take": {
+   "text": "bring — принести сюда; take — унести отсюда",
+   "kind": "contrast",
+   "ex": [
+    "Bring me a chair. — Принеси мне стул.",
+    "Take these plates away. — Унеси эти тарелки."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "many|much": {
+   "text": "many — со счётными (many books); much — с несчётными (much water)",
+   "kind": "rule",
+   "ex": [
+    "many friends — много друзей",
+    "much time — много времени"
+   ],
+   "src": "rule-read"
+  },
+  "few|little": {
+   "text": "few — мало счётных; little — мало несчётного",
+   "kind": "rule",
+   "ex": [
+    "few people — мало людей",
+    "little water — мало воды"
+   ],
+   "src": "rule-read"
+  },
+  "any|some": {
+   "text": "some — в утверждениях; any — в вопросах и отрицаниях",
+   "kind": "rule",
+   "ex": [
+    "I have some bread. — У меня есть хлеб.",
+    "Do you have any bread? — У тебя есть хлеб?"
+   ],
+   "src": "rule-read"
+  },
+  "also|too": {
+   "text": "also — в середине предложения; too — в конце",
+   "kind": "rule",
+   "ex": [
+    "I also like tea. — Я тоже люблю чай.",
+    "I like tea too. — Я тоже люблю чай."
+   ],
+   "src": "rule-read"
+  },
+  "home|house": {
+   "text": "house — здание; home — место, где живёшь, с оттенком «дом родной»",
+   "kind": "contrast",
+   "ex": [
+    "They built a house. — Они построили дом.",
+    "I want to go home. — Я хочу домой."
+   ],
+   "src": "assistant-read",
+   "glosses": "НИ ОДНОЙ"
+  },
+  "job|work": {
+   "text": "job — конкретная должность, счётное; work — работа вообще, несчётное",
+   "kind": "rule",
+   "ex": [
+    "She found a good job. — Она нашла хорошую работу.",
+    "I have a lot of work. — У меня много работы."
+   ],
+   "src": "rule-read"
+  },
+  "travel|trip": {
+   "text": "travel — путешествовать вообще, глагол; trip — конкретная поездка",
+   "kind": "contrast",
+   "ex": [
+    "I love to travel. — Я люблю путешествовать.",
+    "We took a trip to Rome. — Мы съездили в Рим."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "journey|trip": {
+   "text": "journey — длинный путь, сам переезд; trip — поездка целиком, обычно с возвращением",
+   "kind": "pending",
+   "ex": [
+    "a long journey — долгая дорога",
+    "a business trip — командировка"
+   ],
+   "src": "assistant-read"
+  },
+  "high|tall": {
+   "text": "tall — о людях и узких предметах; high — о расстоянии от земли",
+   "kind": "pending",
+   "ex": [
+    "a tall man — высокий мужчина",
+    "a high mountain — высокая гора"
+   ],
+   "src": "assistant-read"
+  },
+  "big|large": {
+   "text": "big — общее «большой», разговорное; large — о размере, чуть формальнее",
+   "kind": "nuance",
+   "ex": [
+    "a big problem — большая проблема",
+    "a large size — большой размер"
+   ],
+   "src": "assistant-read"
+  },
+  "little|small": {
+   "text": "small — о размере; little — с оттенком отношения, часто «маленький и милый»",
+   "kind": "pending",
+   "ex": [
+    "a little girl — маленькая девочка",
+    "a small box — маленькая коробка"
+   ],
+   "src": "assistant-read"
+  },
+  "fast|quick": {
+   "text": "fast — о скорости движения; quick — о коротком времени",
+   "kind": "contrast",
+   "ex": [
+    "a fast car — быстрая машина",
+    "a quick answer — быстрый ответ"
+   ],
+   "src": "assistant-read",
+   "glosses": "НИ ОДНОЙ"
+  },
+  "close|shut": {
+   "text": "close — нейтрально «закрыть»; shut — резче, иногда грубо",
+   "kind": "nuance",
+   "ex": [
+    "Please close the door. — Закрой дверь, пожалуйста.",
+    "Shut up! — Замолчи!"
+   ],
+   "src": "assistant-read"
+  },
+  "begin|start": {
+   "text": "почти синонимы; start ещё значит «запустить механизм»",
+   "kind": "nuance",
+   "ex": [
+    "The film begins at 7. — Фильм начинается в 7.",
+    "The car won't start. — Машина не заводится."
+   ],
+   "src": "assistant-read"
+  },
+  "end|finish": {
+   "text": "finish — довести до конца дело; end — просто прекратиться",
+   "kind": "contrast",
+   "ex": [
+    "I finished the book. — Я дочитала книгу.",
+    "The war ended. — Война закончилась."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "remember|remind": {
+   "text": "remember — помнить самой; remind — напомнить кому-то",
+   "kind": "contrast",
+   "ex": [
+    "I remember her name. — Я помню её имя.",
+    "Remind me to call. — Напомни мне позвонить."
+   ],
+   "src": "assistant-read"
+  },
+  "lay|lie": {
+   "text": "lie — лежать самому; lay — класть что-то",
+   "kind": "contrast",
+   "ex": [
+    "I lie on the bed. — Я лежу на кровати.",
+    "Lay the book here. — Положи книгу сюда."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "raise|rise": {
+   "text": "rise — подниматься самому; raise — поднимать что-то",
+   "kind": "contrast",
+   "ex": [
+    "The sun rises. — Солнце встаёт.",
+    "Raise your hand. — Подними руку."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "beat|win": {
+   "text": "win — выиграть что-то (игру, приз); beat — победить кого-то",
+   "kind": "contrast",
+   "ex": [
+    "We won the game. — Мы выиграли игру.",
+    "We beat them. — Мы их победили."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "rob|steal": {
+   "text": "steal — красть вещь; rob — грабить человека или место",
+   "kind": "contrast",
+   "ex": [
+    "He stole my bike. — Он украл мой велосипед.",
+    "They robbed a bank. — Они ограбили банк."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "hope|wait": {
+   "text": "hope — надеяться; wait — ждать физически",
+   "kind": "pending",
+   "ex": [
+    "I hope you are well. — Надеюсь, у тебя всё хорошо.",
+    "Wait for me. — Подожди меня."
+   ],
+   "src": "assistant-read"
+  },
+  "expect|wait": {
+   "text": "expect — ожидать, предполагать; wait — ждать, проводя время",
+   "kind": "contrast",
+   "ex": [
+    "I expect a call. — Я жду звонка (думаю, что будет).",
+    "I waited an hour. — Я прождала час."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "loose|lose": {
+   "text": "lose — терять, глагол; loose — свободный, просторный, прилагательное",
+   "kind": "rule",
+   "ex": [
+    "loose trousers — свободные брюки",
+    "Don't lose your keys. — Не потеряй ключи."
+   ],
+   "src": "rule-read"
+  },
+  "lose|miss": {
+   "text": "lose — потерять насовсем; miss — упустить, не успеть, скучать",
+   "kind": "contrast",
+   "ex": [
+    "I lost my phone. — Я потеряла телефон.",
+    "I missed the bus. — Я опоздала на автобус."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "accept|agree": {
+   "text": "accept — принять предложенное; agree — согласиться с мнением",
+   "kind": "contrast",
+   "ex": [
+    "She accepted the gift. — Она приняла подарок.",
+    "I agree with you. — Я с тобой согласна."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "advice|advise": {
+   "text": "advice — совет, существительное, несчётное; advise — советовать, глагол",
+   "kind": "rule",
+   "ex": [
+    "Give me some advice. — Дай мне совет.",
+    "I advise you to rest. — Советую тебе отдохнуть."
+   ],
+   "src": "rule-read"
+  },
+  "among|between": {
+   "text": "between — между двумя; among — среди многих",
+   "kind": "contrast",
+   "ex": [
+    "between you and me — между тобой и мной",
+    "among the trees — среди деревьев"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "bored|boring": {
+   "text": "bored — тебе скучно; boring — что-то скучное",
+   "kind": "contrast",
+   "ex": [
+    "I am bored. — Мне скучно.",
+    "The film is boring. — Фильм скучный."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "interested|interesting": {
+   "text": "interested — тебе интересно; interesting — что-то интересное",
+   "kind": "contrast",
+   "ex": [
+    "I am interested in art. — Я интересуюсь искусством.",
+    "an interesting book — интересная книга"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "during|while": {
+   "text": "during — перед существительным; while — перед целым предложением",
+   "kind": "rule",
+   "ex": [
+    "during the lesson — во время урока",
+    "while I was reading — пока я читала"
+   ],
+   "src": "rule-read"
+  },
+  "each|every": {
+   "text": "each — каждый по отдельности; every — все вместе, обобщение",
+   "kind": "contrast",
+   "ex": [
+    "each student got a book — каждый получил книгу",
+    "every day — каждый день"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "fun|funny": {
+   "text": "fun — весело, приятно; funny — смешно",
+   "kind": "contrast",
+   "ex": [
+    "The party was fun. — На вечеринке было весело.",
+    "a funny joke — смешная шутка"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "hard|hardly": {
+   "text": "hard — тяжело, усердно; hardly — едва, почти не",
+   "kind": "contrast",
+   "ex": [
+    "She works hard. — Она много работает.",
+    "She hardly works. — Она почти не работает."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "late|lately": {
+   "text": "late — поздно; lately — в последнее время",
+   "kind": "contrast",
+   "ex": [
+    "I came late. — Я пришла поздно.",
+    "I have been busy lately. — В последнее время я занята."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "near|nearly": {
+   "text": "near — близко; nearly — почти",
+   "kind": "contrast",
+   "ex": [
+    "The shop is near. — Магазин близко.",
+    "I nearly fell. — Я чуть не упала."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "almost|most": {
+   "text": "almost — почти; most — большинство",
+   "kind": "contrast",
+   "ex": [
+    "almost everyone — почти все",
+    "most people — большинство людей"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "another|other": {
+   "text": "another — ещё один, с единственным числом; other — другие",
+   "kind": "rule",
+   "ex": [
+    "another cup of tea — ещё чашку чая",
+    "other people — другие люди"
+   ],
+   "src": "rule-read"
+  },
+  "so|such": {
+   "text": "so — перед прилагательным; such — перед существительным",
+   "kind": "rule",
+   "ex": [
+    "so beautiful — такая красивая",
+    "such a nice day — такой хороший день"
+   ],
+   "src": "rule-read"
+  },
+  "can|may": {
+   "text": "can — умею, могу физически; may — можно, разрешено",
+   "kind": "contrast",
+   "ex": [
+    "I can swim. — Я умею плавать.",
+    "May I come in? — Можно войти?"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "must|should": {
+   "text": "must — обязан; should — стоило бы, совет",
+   "kind": "rule",
+   "ex": [
+    "You must stop. — Ты обязана остановиться.",
+    "You should rest. — Тебе стоит отдохнуть."
+   ],
+   "src": "rule-read"
+  },
+  "answer|reply": {
+   "text": "почти синонимы; answer — прямо, reply — чуть формальнее и часто письменно",
+   "kind": "nuance",
+   "ex": [
+    "Answer the question. — Ответь на вопрос.",
+    "She replied to my email. — Она ответила на письмо."
+   ],
+   "src": "assistant-read"
+  },
+  "arrive|come": {
+   "text": "arrive — прибыть в пункт назначения; come — приходить вообще",
+   "kind": "contrast",
+   "ex": [
+    "We arrived at the airport. — Мы прибыли в аэропорт.",
+    "Come to my place. — Приходи ко мне."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "change|exchange": {
+   "text": "change — менять вообще; exchange — обменивать одно на другое",
+   "kind": "contrast",
+   "ex": [
+    "I changed my mind. — Я передумала.",
+    "exchange money — обменять деньги"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "cost|price": {
+   "text": "cost — стоить, глагол; price — цена, существительное",
+   "kind": "rule",
+   "ex": [
+    "It costs ten euros. — Это стоит десять евро.",
+    "The price is high. — Цена высокая."
+   ],
+   "src": "rule-read"
+  },
+  "dead|die": {
+   "text": "die — умирать, глагол; dead — мёртвый, прилагательное",
+   "kind": "rule",
+   "ex": [
+    "The plant is dead. — Растение погибло.",
+    "He died in 1990. — Он умер в 1990."
+   ],
+   "src": "rule-read"
+  },
+  "earn|win": {
+   "text": "earn — заработать трудом; win — выиграть",
+   "kind": "contrast",
+   "ex": [
+    "She earns good money. — Она хорошо зарабатывает.",
+    "He won the prize. — Он выиграл приз."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "forget|leave": {
+   "text": "forget — забыть в голове; leave — забыть вещь где-то",
+   "kind": "contrast",
+   "ex": [
+    "I forgot his name. — Я забыла его имя.",
+    "I left my bag at home. — Я забыла сумку дома."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "feel|fill": {
+   "text": "feel — чувствовать; fill — наполнять",
+   "kind": "contrast",
+   "ex": [
+    "I feel tired. — Я чувствую усталость.",
+    "Fill the glass. — Наполни стакан."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "like|love": {
+   "text": "like — нравиться; love — любить, сильнее",
+   "kind": "contrast",
+   "ex": [
+    "I like coffee. — Мне нравится кофе.",
+    "I love my family. — Я люблю свою семью."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "look|seem": {
+   "text": "look — выглядеть внешне; seem — казаться по впечатлению",
+   "kind": "contrast",
+   "ex": [
+    "You look tired. — Ты выглядишь усталой.",
+    "It seems easy. — Кажется, это просто."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "people|person": {
+   "text": "person — один человек; people — люди, множественное",
+   "kind": "rule",
+   "ex": [
+    "a nice person — приятный человек",
+    "many people — много людей"
+   ],
+   "src": "rule-read"
+  },
+  "opportunity|possibility": {
+   "text": "opportunity — удобный случай, шанс; possibility — теоретическая вероятность",
+   "kind": "contrast",
+   "ex": [
+    "a great opportunity — отличная возможность",
+    "There is a possibility of rain. — Есть вероятность дождя."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "pass|spend": {
+   "text": "spend — тратить время или деньги; pass — проходить мимо, передавать",
+   "kind": "pending",
+   "ex": [
+    "I spent two hours there. — Я провела там два часа.",
+    "Pass me the salt. — Передай соль."
+   ],
+   "src": "assistant-read"
+  },
+  "place|put": {
+   "text": "put — класть, повседневное; place — размещать, аккуратнее и формальнее",
+   "kind": "nuance",
+   "ex": [
+    "Place it carefully. — Размести это аккуратно.",
+    "Put it on the table. — Положи это на стол."
+   ],
+   "src": "assistant-read"
+  },
+  "realize|understand": {
+   "text": "understand — понимать смысл; realize — вдруг осознать",
+   "kind": "contrast",
+   "ex": [
+    "I understand the rule. — Я понимаю правило.",
+    "I realized I was wrong. — Я поняла, что ошибалась."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "get|receive": {
+   "text": "почти синонимы; receive формальнее, get разговорнее",
+   "kind": "nuance",
+   "ex": [
+    "I got your message. — Я получила твоё сообщение.",
+    "We received the documents. — Мы получили документы."
+   ],
+   "src": "assistant-read"
+  },
+  "deny|refuse": {
+   "text": "refuse — отказаться делать; deny — отрицать факт",
+   "kind": "contrast",
+   "ex": [
+    "He denied everything. — Он всё отрицал.",
+    "She refused to go. — Она отказалась идти."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "fix|repair": {
+   "text": "почти синонимы; fix ещё значит «решить проблему»",
+   "kind": "nuance",
+   "ex": [
+    "Can you fix it? — Можешь починить?",
+    "repair the roof — починить крышу"
+   ],
+   "src": "assistant-read"
+  },
+  "relax|rest": {
+   "text": "rest — отдыхать физически; relax — расслабляться",
+   "kind": "contrast",
+   "ex": [
+    "I need to relax. — Мне нужно расслабиться.",
+    "Sit down and rest. — Сядь и отдохни."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "live|stay": {
+   "text": "live — жить постоянно; stay — остановиться временно",
+   "kind": "contrast",
+   "ex": [
+    "I live in Berlin. — Я живу в Берлине.",
+    "I stayed at a hotel. — Я остановилась в отеле."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "finish|stop": {
+   "text": "finish — довести до конца; stop — прервать",
+   "kind": "contrast",
+   "ex": [
+    "I finished my work. — Я закончила работу.",
+    "Stop talking. — Перестань говорить."
+   ],
+   "src": "assistant-read",
+   "glosses": "НИ ОДНОЙ"
+  },
+  "shop|store": {
+   "text": "синонимы; shop — британский вариант, store — американский",
+   "kind": "nuance",
+   "ex": [
+    "a small shop — маленький магазин",
+    "a big store — большой магазин"
+   ],
+   "src": "assistant-read"
+  },
+  "history|story": {
+   "text": "history — история как наука и прошлое; story — рассказ, история-сюжет",
+   "kind": "contrast",
+   "ex": [
+    "the history of Rome — история Рима",
+    "Tell me a story. — Расскажи мне историю."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "sensible|sensitive": {
+   "text": "sensible — разумный; sensitive — чувствительный",
+   "kind": "contrast",
+   "ex": [
+    "a sensible decision — разумное решение",
+    "a sensitive person — чувствительный человек"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "affect|effect": {
+   "text": "affect — влиять, глагол; effect — эффект, существительное",
+   "kind": "rule",
+   "ex": [
+    "It affects my mood. — Это влияет на моё настроение.",
+    "a strong effect — сильный эффект"
+   ],
+   "src": "rule-read"
+  },
+  "beside|besides": {
+   "text": "beside — рядом с; besides — кроме того",
+   "kind": "contrast",
+   "ex": [
+    "sit beside me — сядь рядом со мной",
+    "Besides, it is late. — Кроме того, уже поздно."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "cloth|clothes": {
+   "text": "cloth — ткань; clothes — одежда, всегда множественное",
+   "kind": "rule",
+   "ex": [
+    "a piece of cloth — кусок ткани",
+    "warm clothes — тёплая одежда"
+   ],
+   "src": "rule-read"
+  },
+  "especially|specially": {
+   "text": "especially — особенно, в большей степени; specially — специально для чего-то",
+   "kind": "contrast",
+   "ex": [
+    "especially in winter — особенно зимой",
+    "made specially for you — сделано специально для тебя"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "no|not": {
+   "text": "no — перед существительным; not — отрицание глагола",
+   "kind": "rule",
+   "ex": [
+    "I have no money. — У меня нет денег.",
+    "I do not know. — Я не знаю."
+   ],
+   "src": "rule-read"
+  },
+  "too|very": {
+   "text": "very — очень, нейтрально; too — слишком, с оттенком «это плохо»",
+   "kind": "contrast",
+   "ex": [
+    "It is too hot. — Слишком жарко.",
+    "It is very hot. — Очень жарко."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "let|make": {
+   "text": "let — позволить; make — заставить",
+   "kind": "contrast",
+   "ex": [
+    "Let me go. — Отпусти меня.",
+    "She made me wait. — Она заставила меня ждать."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "ask|question": {
+   "text": "ask — спрашивать, глагол; question — вопрос, существительное",
+   "kind": "rule",
+   "ex": [
+    "Ask me anything. — Спрашивай что угодно.",
+    "a difficult question — трудный вопрос"
+   ],
+   "src": "rule-read"
+  },
+  "carry|wear": {
+   "text": "carry — нести в руках; wear — носить на себе, одежду",
+   "kind": "contrast",
+   "ex": [
+    "She carried a bag. — Она несла сумку.",
+    "She wears a red dress. — Она носит красное платье."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "country|countryside": {
+   "text": "country — страна; countryside — сельская местность",
+   "kind": "contrast",
+   "ex": [
+    "a foreign country — чужая страна",
+    "a house in the countryside — дом за городом"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "damage|hurt": {
+   "text": "damage — повредить вещь; hurt — причинить боль живому",
+   "kind": "contrast",
+   "ex": [
+    "The storm damaged the roof. — Буря повредила крышу.",
+    "My leg hurts. — У меня болит нога."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "argue|discuss": {
+   "text": "discuss — обсуждать спокойно; argue — спорить, ссориться",
+   "kind": "contrast",
+   "ex": [
+    "They argued about money. — Они спорили из-за денег.",
+    "Let us discuss the plan. — Давай обсудим план."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "explain|tell": {
+   "text": "tell — рассказать; explain — объяснить, разложить по полочкам",
+   "kind": "contrast",
+   "ex": [
+    "Explain the rule. — Объясни правило.",
+    "Tell me what happened. — Расскажи, что случилось."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "free|vacant": {
+   "text": "free — свободный и бесплатный; vacant — незанятый, о месте",
+   "kind": "contrast",
+   "ex": [
+    "The entry is free. — Вход бесплатный.",
+    "a vacant seat — свободное место"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "give|provide": {
+   "text": "give — дать, повседневное; provide — обеспечить, формальнее",
+   "kind": "nuance",
+   "ex": [
+    "Give me the book. — Дай мне книгу.",
+    "The hotel provides towels. — Отель предоставляет полотенца."
+   ],
+   "src": "assistant-read"
+  },
+  "guess|think": {
+   "text": "think — думать, считать; guess — гадать, предполагать наугад",
+   "kind": "contrast",
+   "ex": [
+    "I think it is right. — Я думаю, это верно.",
+    "Guess my age. — Угадай мой возраст."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "happen|occur": {
+   "text": "синонимы; happen разговорное, occur формальное",
+   "kind": "nuance",
+   "ex": [
+    "What happened? — Что случилось?",
+    "The accident occurred at night. — Происшествие случилось ночью."
+   ],
+   "src": "assistant-read"
+  },
+  "aid|help": {
+   "text": "help — обычная помощь; aid — помощь как поддержка, формально",
+   "kind": "nuance",
+   "ex": [
+    "Can you help me? — Можешь помочь?",
+    "humanitarian aid — гуманитарная помощь"
+   ],
+   "src": "assistant-read"
+  },
+  "hold|keep": {
+   "text": "hold — держать в руках сейчас; keep — хранить, оставлять у себя",
+   "kind": "contrast",
+   "ex": [
+    "Hold my hand. — Держи меня за руку.",
+    "Keep the change. — Оставь сдачу себе."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "holiday|vacation": {
+   "text": "синонимы; holiday — британский вариант, vacation — американский",
+   "kind": "nuance",
+   "ex": [
+    "summer holiday — летние каникулы",
+    "a two-week vacation — двухнедельный отпуск"
+   ],
+   "src": "assistant-read"
+  },
+  "hurt|pain": {
+   "text": "hurt — болеть, глагол; pain — боль, существительное",
+   "kind": "rule",
+   "ex": [
+    "My head hurts. — У меня болит голова.",
+    "a sharp pain — резкая боль"
+   ],
+   "src": "rule-read"
+  },
+  "imagine|pretend": {
+   "text": "imagine — представлять в уме; pretend — притворяться",
+   "kind": "contrast",
+   "ex": [
+    "Imagine a beach. — Представь пляж.",
+    "He pretended to sleep. — Он притворился спящим."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "discover|invent": {
+   "text": "discover — найти существующее; invent — создать новое",
+   "kind": "contrast",
+   "ex": [
+    "discover a planet — открыть планету",
+    "invent a machine — изобрести машину"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "know|recognize": {
+   "text": "know — знать; recognize — узнать при встрече",
+   "kind": "contrast",
+   "ex": [
+    "I know her. — Я её знаю.",
+    "I did not recognize you. — Я тебя не узнала."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "memorize|remember": {
+   "text": "memorize — заучить наизусть; remember — помнить",
+   "kind": "contrast",
+   "ex": [
+    "memorize a poem — выучить стихотворение наизусть",
+    "I remember that day. — Я помню тот день."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "hire|rent": {
+   "text": "rent — снимать надолго, жильё; hire — брать напрокат или нанимать людей",
+   "kind": "contrast",
+   "ex": [
+    "hire a car — взять машину напрокат",
+    "rent a flat — снимать квартиру"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "sale|sell": {
+   "text": "sell — продавать, глагол; sale — распродажа или продажа, существительное",
+   "kind": "rule",
+   "ex": [
+    "on sale — на распродаже",
+    "I want to sell my car. — Я хочу продать машину."
+   ],
+   "src": "rule-read"
+  },
+  "give|send": {
+   "text": "give — дать в руки; send — отправить на расстояние",
+   "kind": "contrast",
+   "ex": [
+    "Give me your hand. — Дай мне руку.",
+    "Send me an email. — Отправь мне письмо."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "asleep|sleep": {
+   "text": "sleep — спать, глагол; asleep — спящий, состояние",
+   "kind": "contrast",
+   "ex": [
+    "She fell asleep. — Она уснула.",
+    "I sleep eight hours. — Я сплю восемь часов."
+   ],
+   "src": "assistant-read",
+   "glosses": "НИ ОДНОЙ"
+  },
+  "know|meet": {
+   "text": "meet — познакомиться или встретиться; know — уже знать",
+   "kind": "contrast",
+   "ex": [
+    "I met her yesterday. — Я познакомилась с ней вчера.",
+    "I know her well. — Я хорошо её знаю."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "game|play": {
+   "text": "play — играть, глагол; game — игра, существительное",
+   "kind": "rule",
+   "ex": [
+    "a football game — футбольный матч",
+    "Let us play. — Давай поиграем."
+   ],
+   "src": "rule-read"
+  },
+  "note|notice": {
+   "text": "note — записка или заметить умом; notice — заметить глазами",
+   "kind": "pending",
+   "ex": [
+    "Did you notice her new hair? — Ты заметила её новую причёску?",
+    "I left you a note. — Я оставила тебе записку."
+   ],
+   "src": "assistant-read"
+  },
+  "move|remove": {
+   "text": "move — двигать, переезжать; remove — убрать, удалить",
+   "kind": "contrast",
+   "ex": [
+    "We moved to Berlin. — Мы переехали в Берлин.",
+    "Remove your shoes. — Сними обувь."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "must|need": {
+   "text": "must — обязанность извне; need — внутренняя потребность",
+   "kind": "rule",
+   "ex": [
+    "I must go now. — Мне пора идти.",
+    "I need some rest. — Мне нужен отдых."
+   ],
+   "src": "rule-read"
+  },
+  "offer|suggest": {
+   "text": "offer — предлагать вещь; suggest — предлагать идею",
+   "kind": "contrast",
+   "ex": [
+    "She offered me tea. — Она предложила мне чай.",
+    "I suggest going home. — Предлагаю пойти домой."
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "exercise|practice": {
+   "text": "exercise — упражнение или зарядка; practice — регулярная тренировка навыка",
+   "kind": "contrast",
+   "ex": [
+    "do exercises — делать упражнения",
+    "practice makes perfect — практика ведёт к совершенству"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "achieve|reach": {
+   "text": "reach — дотянуться, добраться; achieve — достичь цели",
+   "kind": "contrast",
+   "ex": [
+    "achieve a goal — достичь цели",
+    "reach the top — добраться до вершины"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  },
+  "brain|mind": {
+   "text": "brain — мозг как орган; mind — ум, сознание",
+   "kind": "contrast",
+   "ex": [
+    "the human brain — человеческий мозг",
+    "change your mind — передумать"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "laugh|smile": {
+   "text": "smile — улыбаться; laugh — смеяться вслух",
+   "kind": "contrast",
+   "ex": [
+    "She laughed loudly. — Она громко засмеялась.",
+    "He smiled at me. — Он мне улыбнулся."
+   ],
+   "src": "assistant-read",
+   "glosses": "НИ ОДНОЙ"
+  },
+  "leave|left": {
+   "text": "leave — уходить, оставлять; left — прошедшее время от leave, а также «левый»",
+   "kind": "pending",
+   "ex": [
+    "I leave at six. — Я ухожу в шесть.",
+    "She left an hour ago. — Она ушла час назад."
+   ],
+   "src": "assistant-read"
+  },
+  "lift|raise": {
+   "text": "lift — поднять физически; raise — поднять уровень, а также растить",
+   "kind": "contrast",
+   "ex": [
+    "Lift the box. — Подними коробку.",
+    "raise prices — поднять цены"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОДНА СТОРОНА"
+  },
+  "enough|quite": {
+   "text": "enough — достаточно, идёт после прилагательного; quite — довольно, перед",
+   "kind": "pending",
+   "ex": [
+    "good enough — достаточно хорошо",
+    "quite good — довольно хорошо"
+   ],
+   "src": "assistant-read"
+  },
+  "find|found": {
+   "text": "find — находить; found — прошедшее время от find, а также «основать»",
+   "kind": "pending",
+   "ex": [
+    "I can't find my keys. — Я не могу найти ключи.",
+    "I found it. — Я нашла это."
+   ],
+   "src": "assistant-read"
+  },
+  "fall|feel": {
+   "text": "fall — падать; feel — чувствовать",
+   "kind": "pending",
+   "ex": [
+    "Don't fall! — Не упади!",
+    "I feel good. — Я чувствую себя хорошо."
+   ],
+   "src": "assistant-read"
+  },
+  "pay|spend": {
+   "text": "pay — платить кому-то; spend — тратить сколько-то",
+   "kind": "contrast",
+   "ex": [
+    "I paid the waiter. — Я заплатила официанту.",
+    "I spent 20 euros. — Я потратила 20 евро."
+   ],
+   "src": "assistant-read"
+  },
+  "keep|store": {
+   "text": "keep — держать у себя; store — хранить на складе, запасать",
+   "kind": "contrast",
+   "ex": [
+    "Keep it safe. — Храни это в надёжном месте.",
+    "store food for winter — запасать еду на зиму"
+   ],
+   "src": "assistant-read",
+   "glosses": "ОБЕ СТОРОНЫ"
+  }
+ }
+}
