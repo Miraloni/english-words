@@ -1539,7 +1539,12 @@ function noteOutcome(card, quality, mode) {
   log.push({
     t: Date.now(),
     w: normalize(card.en),                   // нужно, чтобы связать исход со словом
-    iv: iv,                                  // сколько дней слово ждало проверки
+    iv: iv,                                  // назначенный интервал
+    // Сколько слово ЖДАЛО на самом деле. При тренировке сверх нормы слово берётся
+    // раньше срока, и назначенный интервал перестаёт означать «столько ждали».
+    // Без этого поля таблица удержания считала бы, что слово вспомнили через семь
+    // дней, когда прошёл один — и лестница выглядела бы надёжнее, чем она есть.
+    el: card.lastSeen ? Math.round((Date.now() - card.lastSeen) / DAY * 10) / 10 : null,
     st: card.step || 0,
     m: mode || '',
     ok: quality !== 'again',
@@ -3301,7 +3306,13 @@ function renderRetention() {
   const log = outcomes();
   const L = CFG.srs.ladder;
   const byIv = {};
+  let early = 0;
   for (const r of log) {
+    // Ответ раньше срока не измеряет удержание на этом интервале: слово ждало меньше.
+    // Такие исходы в таблицу не идут, но их число показывается — молча выбрасывать
+    // наблюдения нельзя. Старые записи без поля el считаем полными: до 18.08 тренировка
+    // наперёд не отличалась от обычного повторения.
+    if (r.el !== undefined && r.el !== null && r.iv > 0 && r.el < r.iv * 0.8) { early++; continue; }
     if (!byIv[r.iv]) byIv[r.iv] = { n: 0, ok: 0, typo: 0 };
     byIv[r.iv].n++;
     if (r.ok) byIv[r.iv].ok++;
@@ -3336,6 +3347,7 @@ function renderRetention() {
     + '<td class="muted-note" style="text-align:right">вспомнила</td>'
     + '<td class="muted-note" style="text-align:right">проверок</td></tr>' + rows + '</table>'
     + '<span class="muted-note" style="display:block;margin-top:8px">Всего наблюдений: ' + log.length
+    + (early ? ' · не в счёт, отвечено раньше срока: ' + early : '')
     + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '') + '</span>';
 }
 
