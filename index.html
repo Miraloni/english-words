@@ -1122,6 +1122,9 @@ function load() {
         // Задним числом происхождение не восстановить: поля не было.
         if (c.origin === undefined) c.origin = 'unknown';
         if (c.confirmed === undefined) c.confirmed = true;
+        // Забывания между занятиями. Задним числом не восстановить: до 12.08.2026
+        // провал внутри занятия и забывание за сутки не различались.
+        if (c.forgets === undefined) c.forgets = 0;
         if (c.rescuedAt === undefined) c.rescuedAt = null;
         if (c.prepAt === undefined) c.prepAt = null;
         if (c.prepOk === undefined) c.prepOk = false;
