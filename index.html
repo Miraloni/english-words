@@ -1355,9 +1355,20 @@ function pickCard() {
   const fresh = newCards().sort((a, b) => a.order - b.order);
   const room = inWorkCards(data).length < CFG.load.maxInWork;
   if (fresh.length && !testToday && data.sessionNew < data.newPerDay && room) return fresh[0];
-  // 3) сверх лимита и новых не осталось — даём ближайшее будущее слово для тренировки
+  // 3) сверх лимита и новых не осталось — даём слово для тренировки наперёд.
+  //
+  // Раньше здесь бралось «ближайшее будущее слово», и это зацикливалось: провал
+  // ставит срок «через минуту», то есть делает слово САМЫМ ближайшим в колоде,
+  // и оно выдавалось снова, снова и снова, без единой чужой карточки между показами.
+  //
+  // Поэтому: слова в переучивании (интервал 0) сюда не попадают — у них есть свой
+  // срок внутри занятия, и ветка выше их выдаст, когда он наступит. А порядок —
+  // по давности показа, а не по сроку: так тренировка обходит колоду, а не топчется
+  // на одном слове.
   if (overLimit) {
-    const future = data.cards.filter(c => c.due !== null).sort((a, b) => a.due - b.due);
+    const future = data.cards
+      .filter(c => c.due !== null && (c.interval || 0) > 0 && c !== current)
+      .sort(byCoverage);
     if (future.length) return future[0];
   }
   return null;
