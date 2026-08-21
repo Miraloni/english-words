@@ -532,6 +532,10 @@
         второе — все провалы, включая повторы внутри одного вечера. Сопротивляется
         по-настоящему то, что забылось за сутки.
       </p>
+      <div class="goal-row" style="margin:0 0 14px">
+        <button class="btn-primary" id="leechStudyBtn">Проработать западающие</button>
+        <span class="muted-note" id="leechStudyHint"></span>
+      </div>
       <table><tbody id="leechTable"></tbody></table>
       <div class="goal-row" style="margin-top:14px">
         Считать западающим после провалов:
@@ -716,6 +720,15 @@
       <button class="modal-close" id="trapClose" title="Закрыть"><svg class="ico"><use href="#i-cross"/></svg></button>
       <h2>Похоже на русское слово</h2>
       <div id="trapBody"></div>
+    </div>
+  </div>
+
+  <!-- ПРОРАБОТКА ЗАПАДАЮЩИХ: лечебный проход, щадящее влияние на расписание -->
+  <div class="modal-overlay" id="leechModal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="leechClose" title="Закрыть"><svg class="ico"><use href="#i-cross"/></svg></button>
+      <h2>Проработка западающих</h2>
+      <div id="leechBody"></div>
     </div>
   </div>
 
@@ -1085,6 +1098,7 @@ function newCard(en, ru, example) {
     rescuedAt: null,       // при скольких провалах последний раз показывали спасательный экран
     prepAt: null,          // при скольких провалах последний раз пробовали подготовить подсказку
     prepOk: false,         // получилось ли; если нет — пробуем снова на следующем провале
+    retaughtAt: null,      // когда слово в последний раз проходило лечебный проход по западающим
   };
 }
 
@@ -1160,6 +1174,7 @@ function load() {
         if (c.rescuedAt === undefined) c.rescuedAt = null;
         if (c.prepAt === undefined) c.prepAt = null;
         if (c.prepOk === undefined) c.prepOk = false;
+        if (c.retaughtAt === undefined) c.retaughtAt = null;
       });
       clampIntervals(d);
       // Разовая парковка: в оборот успела войти вся колода. Выполняется один раз,
@@ -3830,17 +3845,281 @@ function leechCards() {
 }
 
 // Видимостью карточки теперь распоряжается renderWords (она живёт под срезом
-// «западают»), здесь только счётчик плитки и наполнение таблицы.
+// «западают»), здесь только счётчик плитки, наполнение таблицы и кнопка прохода.
 function renderLeeches() {
   const list = leechCards();
   document.getElementById('stLeech').textContent = list.length;
+  const daysAgo = ms => Math.floor((Date.now() - ms) / DAY);
   document.getElementById('leechTable').innerHTML = list.length
-    ? list.slice(0, 30).map(c =>
-        `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td>
-           <td style="text-align:right">${c.forgets || 0}× <span class="muted-note">из ${c.lapses}</span></td></tr>`
-      ).join('')
+    ? list.slice(0, 30).map(c => {
+        const retaught = c.retaughtAt
+          ? ` <span class="muted-note">· переучено ${daysAgo(c.retaughtAt) === 0 ? 'сегодня' : daysAgo(c.retaughtAt) + ' дн. назад'}</span>`
+          : '';
+        return `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td>
+           <td style="text-align:right">${c.forgets || 0}× <span class="muted-note">из ${c.lapses}</span>${retaught}</td></tr>`;
+      }).join('')
     : '<tr><td class="muted-note">Пока нет слов, проваленных так часто. Порог можно снизить ниже.</td></tr>';
+
+  // Кнопка лечебного прохода: работает по первым LEECH_SESSION_MAX словам списка.
+  const btn = document.getElementById('leechStudyBtn');
+  const hint = document.getElementById('leechStudyHint');
+  if (btn) {
+    const take = Math.min(list.length, LEECH_SESSION_MAX);
+    btn.disabled = take === 0;
+    btn.textContent = take ? `Проработать западающие (${take})` : 'Западающих нет';
+    hint.textContent = take
+      ? '· особый сценарий: пере-знакомство → различение → затухающая подсказка → свой пример'
+      : '';
+  }
 }
+//============ Проработка западающих (лечебный проход) ============
+// Отдельный проход строго по западающим словам. Из исследования: повторять
+// проваленную карточку в том же виде почти бесполезно — лечит не число показов, а
+// (1) богатое пере-кодирование, (2) различение конкурента, (3) затухающая
+// подсказка, разрывающая цепочку провалов, (4) собственный пример. Влияние на
+// расписание щадящее: провалы внутри прохода НЕ идут в lapses/forgets, успех даёт
+// сутки отдыха и метку «переучено». Как ловушки — вне обычной оценки.
+const LEECH_SESSION_MAX = 6;
+let leechRun = null;
+let leechPrevCurrent = null;
+
+async function openLeechSession() {
+  const list = leechCards().slice(0, LEECH_SESSION_MAX);
+  if (!list.length) return;
+  // Материал для различения и мнемоники подгружаем заранее; отсутствие файлов — штатно.
+  try { await Promise.all([loadConfusions(), loadFalseFriends(), loadMnemonics()]); } catch (e) {}
+  leechPrevCurrent = current;
+  leechRun = { list: list, at: 0, screens: [], si: 0 };
+  document.getElementById('leechModal').hidden = false;
+  leechStartWord();
+}
+
+function closeLeechSession() {
+  document.getElementById('leechModal').hidden = true;
+  leechRun = null;
+  current = leechPrevCurrent;   // вернуть глобальный current изучению
+  renderWords();                // обновить метки «переучено» и счётчики
+}
+
+// Соперник для различения: близкое слово из confusions или ложный друг.
+function leechCompetitor(card) {
+  const w = normalize(card.en);
+  for (const key of Object.keys(CONFUSIONS)) {
+    const parts = key.split('|');
+    const i = parts.indexOf(w);
+    if (i >= 0 && parts.length === 2) return { other: parts[1 - i], text: CONFUSIONS[key][0] };
+  }
+  if (Array.isArray(ffPairs)) {
+    const p = ffPairs.find(x => normalize(x.en) === w);
+    if (p) return {
+      other: p.looks,
+      text: '«' + p.en + '» значит «' + p.en_means + '», хотя звучит как русское «' + p.looks + '». '
+          + 'А «' + p.looks + '» по-английски — «' + p.ru_means + '».'
+    };
+  }
+  return null;
+}
+
+// План экранов для одного слова. Порядок = порядок из исследования: сперва заново
+// преподаём, потом различаем конкурента, потом убираем подсказку по шагам.
+function leechScreensFor(card) {
+  const screens = ['reencode'];
+  if (leechCompetitor(card)) screens.push('discriminate');
+  if (clozeParts(card)) screens.push('fadeCloze');   // контекст — самая сильная подсказка
+  screens.push('fadeFirst');                          // первая буква — слабее
+  screens.push('fadeBare');                           // голый ввод — цель
+  screens.push('generate');
+  return screens;
+}
+
+function leechStartWord() {
+  const r = leechRun;
+  if (!r) return;
+  if (r.at >= r.list.length) return leechRenderDone();
+  current = r.list[r.at];       // фетчеры мнемоники и картинки завязаны на current
+  r.screens = leechScreensFor(current);
+  r.si = 0;
+  leechRenderScreen();
+}
+
+function leechNextScreen() {
+  const r = leechRun;
+  if (!r) return;
+  r.si++;
+  if (r.si >= r.screens.length) {
+    leechFinishWord(r.list[r.at]);
+    r.at++;
+    return leechStartWord();
+  }
+  leechRenderScreen();
+}
+
+// Щадящее расписание: сутки покоя и метка. Историю и lapses не трогаем — «западало»
+// это честно; но слово получает свежую опору и день отдыха перед обычными повторами.
+function leechFinishWord(card) {
+  card.retaughtAt = Date.now();
+  card.due = Date.now() + DAY;
+  save(data);
+}
+
+function leechProgress() {
+  const r = leechRun;
+  return '<span class="muted-note">Слово ' + (r.at + 1) + ' из ' + r.list.length + ' · не идёт в провалы</span>';
+}
+
+function leechRenderDone() {
+  document.getElementById('leechBody').innerHTML =
+    '<p>Готово. Проработано слов: ' + leechRun.list.length + '.</p>'
+    + '<p class="muted-note">Каждое получило сутки отдыха и метку «переучено». '
+    + 'Дальше они вернутся в обычные повторения — там и станет видно, помогло ли.</p>'
+    + '<div class="btn-row" style="justify-content:flex-end">'
+    + '<button class="btn-primary" id="leechDone">Закрыть</button></div>';
+  document.getElementById('leechDone').onclick = closeLeechSession;
+}
+
+function leechRenderScreen() {
+  const kind = leechRun.screens[leechRun.si];
+  if (kind === 'reencode') return leechReencode();
+  if (kind === 'discriminate') return leechDiscriminate();
+  if (kind === 'fadeCloze') return leechFade('cloze');
+  if (kind === 'fadeFirst') return leechFade('first');
+  if (kind === 'fadeBare') return leechFade('bare');
+  if (kind === 'generate') return leechGenerate();
+  return leechNextScreen();
+}
+
+// Шаг 1 — пере-знакомство. Повторно, но богаче: созвучие, картинка, звук, пример.
+// Ничего не спрашиваем — это осознанное переучивание. Переиспользует спасательный экран.
+function leechReencode() {
+  const card = current;
+  const base = normalize(card.en);
+  const hint = MNEMONICS[base] || mnCache()[base] || '';
+  rescueHint = hint;
+  document.getElementById('leechBody').innerHTML = leechProgress()
+    + '<div class="card rescue">'
+    + '<span class="mode-tag">Разбираем заново</span>'
+    + '<div class="word">' + esc(card.en) + '</div>'
+    + '<button class="speak-btn" id="lchSpeak" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>'
+    + '<div class="translation">' + esc(card.ru) + '</div>'
+    + (hint ? '<div class="rescue-hint">' + hintBlock(hint, 'keyword') + '</div>' : '')
+    + '<div id="imgHost" style="width:100%"></div>'
+    + '<div id="exHost" style="width:100%"></div>'
+    + '</div>'
+    + '<button class="btn-primary" id="lchNext" style="align-self:flex-end">Понятно, дальше</button>';
+  document.getElementById('lchSpeak').onclick = () => speak(card.en);
+  speak(card.en);
+  if (hint) mnMarkShown(base, 'keyword');
+  if (card.example) showExample(document.getElementById('exHost'), true);
+  const cfg = apiConfig();
+  if (cfg) {
+    const host = cfg.url.replace(/\/+$/, '');
+    if (!hint) fetchMnemonic(host, cfg.token, base, card.ru);
+    mountRescueImage(host, base, document.getElementById('imgHost'));
+  }
+  document.getElementById('lchNext').onclick = leechNextScreen;
+}
+
+// Шаг 2 — различение. Ставим конкурента рядом: интерференция лечится контрастом,
+// а не изоляцией. Читаем, не спрашиваем — проверка придёт на шаге извлечения.
+function leechDiscriminate() {
+  const comp = leechCompetitor(current);
+  document.getElementById('leechBody').innerHTML = leechProgress()
+    + '<div class="card">'
+    + '<span class="mode-tag">Не спутай</span>'
+    + '<div class="word">' + esc(current.en) + '</div>'
+    + '<div class="translation">' + esc(current.ru) + '</div>'
+    + '<div class="rescue-hint" style="margin-top:14px">'
+    + '<div class="muted-note" style="margin-bottom:4px">Рядом живёт «' + esc(comp.other) + '» — вот разница:</div>'
+    + esc(comp.text) + '</div>'
+    + '</div>'
+    + '<button class="btn-primary" id="lchNext" style="align-self:flex-end">Понятно, дальше</button>';
+  speak(current.en);
+  document.getElementById('lchNext').onclick = leechNextScreen;
+}
+
+// Шаг 3 — затухающая подсказка: контекст → первая буква → голый ввод. Разрывает
+// цепочку провалов гарантированной опорой, которая слабеет к концу.
+function leechFade(mode) {
+  const card = current;
+  let promptHtml, tag;
+  if (mode === 'cloze') {
+    const cp = clozeParts(card);
+    tag = 'Впиши пропущенное слово';
+    promptHtml = '<div class="word" style="font-size:20px;line-height:1.5">' + esc(cp.before)
+      + '<span style="border-bottom:2px solid var(--text-faint);padding:0 22px">&nbsp;</span>' + esc(cp.after) + '</div>'
+      + '<div class="translation">' + esc(card.ru) + '</div>';
+  } else if (mode === 'first') {
+    const first = card.en.replace(/^to /, '').charAt(0);
+    tag = 'Вспомни слово';
+    promptHtml = '<div class="word">' + esc(card.ru) + '</div>'
+      + '<div class="translation">начинается на «' + esc(first) + '»</div>';
+  } else {
+    tag = 'Напиши по-английски';
+    promptHtml = '<div class="word">' + esc(card.ru) + '</div>';
+  }
+  document.getElementById('leechBody').innerHTML = leechProgress()
+    + '<div class="card">'
+    + '<span class="mode-tag">' + tag + '</span>'
+    + promptHtml
+    + '<input class="type-input" id="lchIn" placeholder="english word…" autocomplete="off" autocapitalize="off" spellcheck="false" />'
+    + '<div class="feedback" id="lchFb"></div>'
+    + '</div>'
+    + '<button class="btn-primary" id="lchCheck" style="align-self:flex-end">Проверить</button>';
+  const input = document.getElementById('lchIn');
+  input.focus();
+  const check = () => leechCheckFade(input.value);
+  document.getElementById('lchCheck').onclick = check;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+}
+
+// Оценки нет: провал в лечебном проходе не наказываем, только показываем верное.
+function leechCheckFade(value) {
+  const input = document.getElementById('lchIn');
+  const fb = document.getElementById('lchFb');
+  const okBtn = document.getElementById('lchCheck');
+  const good = isMatch(value, current.en);
+  input.disabled = true;
+  input.classList.add(good ? 'correct' : 'wrong');
+  speak(current.en);
+  if (okBtn) okBtn.remove();
+  if (good) { fb.textContent = 'Верно · ' + current.en; fb.className = 'feedback ok'; }
+  else { fb.innerHTML = 'Правильно: <b>' + esc(current.en) + '</b>'; fb.className = 'feedback no'; }
+  const next = document.createElement('button');
+  next.className = 'btn-primary';
+  next.style.cssText = 'align-self:flex-end;margin-top:12px';
+  next.textContent = 'Дальше';
+  next.onclick = leechNextScreen;
+  document.getElementById('leechBody').appendChild(next);
+}
+
+// Шаг 4 — генерация. Свой пример держится крепче чужого; заодно обогащает карточку,
+// если своего примера у неё ещё не было. Необязательный — можно пропустить.
+function leechGenerate() {
+  document.getElementById('leechBody').innerHTML = leechProgress()
+    + '<div class="card">'
+    + '<span class="mode-tag">Свяжи с собой</span>'
+    + '<div class="word">' + esc(current.en) + '</div>'
+    + '<div class="translation">' + esc(current.ru) + '</div>'
+    + '<div class="muted-note" style="margin:12px 0 8px">Придумай и запиши свой короткий пример с этим словом — своё держится крепче чужого.</div>'
+    + '<input class="type-input" id="lchGen" placeholder="твой пример…" autocomplete="off" />'
+    + '</div>'
+    + '<div class="btn-row" style="justify-content:flex-end;gap:10px">'
+    + '<button class="btn-ghost" id="lchSkip">Пропустить</button>'
+    + '<button class="btn-primary" id="lchSaveGen">Готово</button>'
+    + '</div>';
+  const input = document.getElementById('lchGen');
+  input.focus();
+  const finish = () => {
+    const v = input.value.trim();
+    // Чужой (словарный) пример молча не затираем — сохраняем своё, только если пусто.
+    if (v && !current.example) { current.example = v; save(data); }
+    leechNextScreen();
+  };
+  document.getElementById('lchSaveGen').onclick = finish;
+  document.getElementById('lchSkip').onclick = leechNextScreen;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') finish(); });
+}
+
 function updatePlanHint() {
   const remaining = data.cards.filter(c => !c.introduced).length;
   // Новые слова входят не только по дневному лимиту, но и по мере освобождения места:
@@ -3960,6 +4239,10 @@ document.getElementById('leechInput').addEventListener('change', e => {
 document.querySelectorAll('.stat-box[data-goto]').forEach(box =>
   box.addEventListener('click', () => goToWords(box.dataset.goto)));
 document.getElementById('wordsFilterClear').onclick = () => { wordsFilter = null; renderWords(); };
+
+// Лечебный проход по западающим.
+document.getElementById('leechStudyBtn').onclick = openLeechSession;
+document.getElementById('leechClose').onclick = closeLeechSession;
 document.getElementById('newPerDayInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
   if (v >= 1) { data.newPerDay = v; save(data); updatePlanHint(); updateProgress(); nextCard(); }
