@@ -290,6 +290,26 @@
     font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
   }
   .stat-box .lbl { font-size: 12.5px; color: var(--text-faint); margin-top: 7px; }
+  /* Плитки-ссылки: число открывает свой срез в списке слов. Курсор и лёгкая
+     подсветка нужны, чтобы клик читался как клик, а не как случайная возможность. */
+  .stat-box[data-goto] { cursor: pointer; border-radius: 10px; margin: -6px -8px; padding: 6px 8px; transition: background .12s; }
+  .stat-box[data-goto]:hover { background: var(--surface-2, rgba(127,127,127,.08)); }
+  .stat-box[data-goto] .num { text-decoration: underline; text-decoration-color: var(--text-faint); text-underline-offset: 4px; }
+
+  /* Фильтр среза над списком слов: чип с названием и крестиком сброса. */
+  .words-filter { display: none; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 13px; color: var(--text-dim); }
+  .words-filter.on { display: flex; }
+  .words-filter b { color: var(--text); font-weight: 600; }
+  .words-filter button { background: none; border: 1px solid var(--text-faint); color: var(--text-dim); border-radius: 20px; padding: 3px 11px; cursor: pointer; font-size: 12.5px; }
+
+  /* График формы дня: рисуется инлайновым SVG в общем сдержанном стиле. */
+  #qualityBox svg { width: 100%; height: auto; display: block; }
+  #qualityBox .q-line { fill: none; stroke: var(--text-dim); stroke-width: 2; }
+  #qualityBox .q-dot { fill: var(--text-dim); }
+  #qualityBox .q-dot.good { fill: var(--ok); }
+  #qualityBox .q-dot.bad { fill: var(--no); }
+  #qualityBox .q-grid { stroke: var(--text-faint); stroke-width: 1; opacity: .3; }
+  #qualityBox .q-lbl { fill: var(--text-faint); font-size: 10px; }
 
   .section-label { margin: 52px 0 18px; }
   .goal-row {
@@ -492,27 +512,20 @@
       <span class="import-status" id="importStatus"></span>
     </div>
     <div id="pendingBox" hidden></div>
+    <div class="words-filter" id="wordsFilterBar">
+      Показаны: <b id="wordsFilterName"></b> <span id="wordsFilterCount" class="muted-note"></span>
+      <button type="button" id="wordsFilterClear">× все слова</button>
+    </div>
     <input class="search" id="search" placeholder="Поиск по словам" />
-    <table>
+    <table id="wordsMainTable">
       <thead><tr><th>Слово</th><th>Перевод</th><th>Статус</th><th></th></tr></thead>
       <tbody id="wordsTable"></tbody>
     </table>
-  </section>
 
-  <!-- СТАТИСТИКА -->
-  <section id="stats" class="view">
-    <div class="stats-grid">
-      <span class="import-status" id="storageWarn" hidden style="display:block;margin-bottom:12px"></span>
-      <div class="stat-box"><div class="num" id="stTotal">0</div><div class="lbl">Всего слов</div></div>
-      <div class="stat-box"><div class="num" id="stLearned">0</div><div class="lbl">В работе</div></div>
-      <div class="stat-box"><div class="num" id="stDone">0</div><div class="lbl">Закреплено</div></div>
-      <div class="stat-box"><div class="num" id="stForget">0</div><div class="lbl">Забывались между занятиями</div></div>
-      <div class="stat-box"><div class="num" id="stDue">0</div><div class="lbl">К повторению сейчас</div></div>
-      <div class="stat-box"><div class="num" id="stStreak">0</div><div class="lbl">Дней подряд</div></div>
-      <div class="stat-box"><div class="num" id="stLeech">0</div><div class="lbl">Западают</div></div>
-    </div>
-
-    <div class="info-card" id="leechCard" hidden>
+    <!-- Западающие слова живут здесь: их открывает клик по плитке «Западают».
+         Список богаче обычного (забывания × все провалы), поэтому это отдельный
+         блок, а не строки общей таблицы. Виден только под фильтром «leech». -->
+    <div class="info-card" id="leechCard" hidden style="margin-top:0">
       <h3><svg class="ico"><use href="#i-alert"/></svg> Западающие слова</h3>
       <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.5">
         Слова, которые ты провалила чаще всего. Первое число — забывания между занятиями,
@@ -525,6 +538,25 @@
         <input type="number" id="leechInput" min="2" max="20" step="1" />
       </div>
     </div>
+  </section>
+
+  <!-- СТАТИСТИКА -->
+  <section id="stats" class="view">
+    <div class="stats-grid">
+      <span class="import-status" id="storageWarn" hidden style="display:block;margin-bottom:12px"></span>
+      <div class="stat-box" data-goto="total"><div class="num" id="stTotal">0</div><div class="lbl">Всего слов</div></div>
+      <div class="stat-box" data-goto="inwork"><div class="num" id="stLearned">0</div><div class="lbl">В работе</div></div>
+      <div class="stat-box" data-goto="done"><div class="num" id="stDone">0</div><div class="lbl">Закреплено</div></div>
+      <div class="stat-box" data-goto="forget"><div class="num" id="stForget">0</div><div class="lbl">Забывались между занятиями</div></div>
+      <div class="stat-box" data-goto="due"><div class="num" id="stDue">0</div><div class="lbl">К повторению сейчас</div></div>
+      <div class="stat-box"><div class="num" id="stStreak">0</div><div class="lbl">Дней подряд</div></div>
+      <div class="stat-box" data-goto="leech"><div class="num" id="stLeech">0</div><div class="lbl">Западают</div></div>
+    </div>
+
+    <!-- На месте, где раньше лежал список западающих, теперь график формы дня:
+         не «сколько выучено», а насколько качественно шла проработка сегодня. -->
+    <h3 class="section-label">Форма дня</h3>
+    <div id="qualityBox"></div>
 
     <h3 class="section-label">Профиль</h3>
     <div class="goal-row">
@@ -1235,7 +1267,8 @@ document.querySelectorAll('nav button').forEach(b => {
     document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById(b.dataset.view).classList.add('active');
-    if (b.dataset.view === 'words') renderWords();
+    // Клик по «Слова» в шапке — это весь словарь, а не последний открытый срез.
+    if (b.dataset.view === 'words') { wordsFilter = null; renderWords(); }
     if (b.dataset.view === 'stats') renderStats();
     if (b.dataset.view === 'study') nextCard();
   });
@@ -2928,11 +2961,59 @@ document.addEventListener('keydown', e => {
 });
 
 //============ Вкладка «Слова» ============
+// Срезы из статистики. Предикаты повторяют счётчики плиток один-в-один, чтобы
+// число на плитке и длина открытого списка совпадали. «total» — весь словарь.
+const WORD_FILTERS = {
+  total:  { name: 'все слова',                    test: () => true },
+  inwork: { name: 'в работе',                     test: c => c.introduced && c.due !== null && (c.interval || 0) < CFG.srs.graduatedDays },
+  done:   { name: 'закреплено',                   test: c => (c.interval || 0) >= CFG.srs.graduatedDays },
+  forget: { name: 'забывались между занятиями',   test: c => (c.forgets || 0) > 0 },
+  due:    { name: 'к повторению сейчас',           test: c => c.due !== null && c.due <= Date.now() },
+  leech:  { name: 'западают',                      test: c => (c.lapses || 0) >= data.leechThreshold },
+};
+let wordsFilter = null;   // активный срез списка слов; null и 'total' — весь словарь
+
+// Открыть список слов на нужном срезе. Вызывается кликом по плитке статистики.
+function goToWords(filter) {
+  wordsFilter = (filter && filter !== 'total' && WORD_FILTERS[filter]) ? filter : null;
+  document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  document.querySelector('nav button[data-view="words"]').classList.add('active');
+  document.getElementById('words').classList.add('active');
+  renderWords();
+}
+
 function renderWords() {
   renderPending();
   const q = document.getElementById('search').value.toLowerCase();
   const tbody = document.getElementById('wordsTable');
+  const f = (wordsFilter && WORD_FILTERS[wordsFilter]) ? WORD_FILTERS[wordsFilter] : null;
+
+  // Шапка среза: показываем название и число, даём сброс к полному словарю.
+  const bar = document.getElementById('wordsFilterBar');
+  if (f) {
+    bar.classList.add('on');
+    document.getElementById('wordsFilterName').textContent = f.name;
+    document.getElementById('wordsFilterCount').textContent = '· ' + data.cards.filter(f.test).length;
+  } else {
+    bar.classList.remove('on');
+  }
+
+  // Западающие — отдельный богатый блок (забывания × все провалы), а не строки
+  // общей таблицы. Под этим срезом прячем таблицу и показываем его.
+  const mainTable = document.getElementById('wordsMainTable');
+  const leechCard = document.getElementById('leechCard');
+  if (wordsFilter === 'leech') {
+    mainTable.style.display = 'none';
+    renderLeeches();
+    leechCard.hidden = false;
+    return;
+  }
+  leechCard.hidden = true;
+  mainTable.style.display = '';
+
   const rows = data.cards
+    .filter(c => !f || f.test(c))
     .filter(c => c.en.toLowerCase().includes(q) || c.ru.toLowerCase().includes(q))
     .map(c => {
       const status = c.confirmed === false
@@ -3377,6 +3458,63 @@ function renderRetention() {
     + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '') + '</span>';
 }
 
+// ФОРМА ДНЯ. Не «сколько выучено», а насколько качественно шла проработка в этот
+// день: взвешенная доля верных ответов, где ошибка на давно знакомом (зрелом) слове
+// весит больше, чем на только что закреплённом. Вес = ступень + 1. Считается по логу
+// исходов, поэтому доступен и задним числом. Прощённые опечатки идут как верные —
+// знание слова они не опровергают. В лог попадают только ответы на словах, отстоявших
+// интервал (iv>0), то есть заучивание внутри вечера форму не занижает.
+const QUALITY_DAYS = 21;
+function qualityByDay(days) {
+  const byDay = {};
+  for (const r of outcomes()) {
+    if (!r.t) continue;
+    const d = new Date(r.t);
+    const key = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    if (!byDay[key]) byDay[key] = { t: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), w: 0, ok: 0, n: 0 };
+    const weight = 1 + (r.st || 0);
+    byDay[key].w += weight;
+    byDay[key].n += 1;
+    if (r.ok) byDay[key].ok += weight;
+  }
+  const list = Object.values(byDay).sort((a, b) => a.t - b.t);
+  const tail = days ? list.slice(-days) : list;
+  return tail.map(d => ({ t: d.t, n: d.n, score: d.w ? Math.round(100 * d.ok / d.w) : null }));
+}
+
+function renderQuality() {
+  const box = document.getElementById('qualityBox');
+  if (!box) return;
+  const explain = 'Насколько качественно шла проработка в этот день: взвешенная доля верных ответов, '
+    + 'где ошибка на давно знакомом слове весит больше, чем на только что закреплённом. Опечатки засчитаны верными.';
+  const series = qualityByDay(QUALITY_DAYS).filter(d => d.score !== null);
+  if (series.length < 2) {
+    box.innerHTML = '<p class="muted-note">Пока мало данных — график появится, когда наберётся хотя бы два дня повторений. ' + explain + '</p>';
+    return;
+  }
+  const W = 640, H = 180, x0 = 30, x1 = W - 12, y0 = 14, y1 = H - 26;
+  const n = series.length;
+  const xAt = i => n === 1 ? (x0 + x1) / 2 : x0 + (x1 - x0) * i / (n - 1);
+  const yAt = v => y1 - (y1 - y0) * v / 100;
+  const pts = series.map((d, i) => [xAt(i), yAt(d.score)]);
+  const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const grid = [0, 50, 100].map(v =>
+    `<line class="q-grid" x1="${x0}" y1="${yAt(v).toFixed(1)}" x2="${x1}" y2="${yAt(v).toFixed(1)}"/>`
+    + `<text class="q-lbl" x="0" y="${(yAt(v) + 3).toFixed(1)}">${v}</text>`).join('');
+  const dots = series.map((d, i) => {
+    const cls = d.score >= 80 ? 'good' : (d.score < 60 ? 'bad' : '');
+    return `<circle class="q-dot ${cls}" cx="${pts[i][0].toFixed(1)}" cy="${pts[i][1].toFixed(1)}" r="3">`
+      + `<title>${fmtDate(d.t)}: ${d.score} · ответов ${d.n}</title></circle>`;
+  }).join('');
+  const idxs = n <= 4 ? series.map((_, i) => i) : [0, Math.floor((n - 1) / 2), n - 1];
+  const xlabels = idxs.map(i =>
+    `<text class="q-lbl" x="${xAt(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${fmtDate(series[i].t)}</text>`).join('');
+  const last = series[series.length - 1];
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="График формы по дням">`
+    + `${grid}<path class="q-line" d="${path}"/>${dots}${xlabels}</svg>`
+    + `<p class="muted-note" style="margin-top:10px">Сегодня: <b>${last.score}</b> из 100. ${explain}</p>`;
+}
+
 // Карточки с переводом от модели ждут явного действия. Не галочка по умолчанию:
 // перевод — утверждение о языке, и подтвердить его должен человек, а не тишина.
 function renderPending() {
@@ -3662,6 +3800,7 @@ function renderStats() {
   document.getElementById('newPerDayInput').value = data.newPerDay;
   document.getElementById('leechInput').value = data.leechThreshold;
   renderLeeches();
+  renderQuality();
   renderConfStats();
   renderLadder();
   renderCap();
@@ -3685,14 +3824,17 @@ function leechCards() {
     .sort((a, b) => ((b.forgets || 0) - (a.forgets || 0)) || (b.lapses - a.lapses));
 }
 
+// Видимостью карточки теперь распоряжается renderWords (она живёт под срезом
+// «западают»), здесь только счётчик плитки и наполнение таблицы.
 function renderLeeches() {
   const list = leechCards();
   document.getElementById('stLeech').textContent = list.length;
-  document.getElementById('leechCard').hidden = list.length === 0;
-  document.getElementById('leechTable').innerHTML = list.slice(0, 30).map(c =>
-    `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td>
-       <td style="text-align:right">${c.forgets || 0}× <span class="muted-note">из ${c.lapses}</span></td></tr>`
-  ).join('');
+  document.getElementById('leechTable').innerHTML = list.length
+    ? list.slice(0, 30).map(c =>
+        `<tr><td><b>${esc(c.en)}</b></td><td>${esc(c.ru)}</td>
+           <td style="text-align:right">${c.forgets || 0}× <span class="muted-note">из ${c.lapses}</span></td></tr>`
+      ).join('')
+    : '<tr><td class="muted-note">Пока нет слов, проваленных так часто. Порог можно снизить ниже.</td></tr>';
 }
 function updatePlanHint() {
   const remaining = data.cards.filter(c => !c.introduced).length;
@@ -3806,8 +3948,13 @@ document.getElementById('apiTest').onclick = async () => {
 
 document.getElementById('leechInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
-  if (v >= 2) { data.leechThreshold = v; save(data); renderLeeches(); }
+  if (v >= 2) { data.leechThreshold = v; save(data); renderLeeches(); renderWords(); }
 });
+
+// Плитки статистики открывают свой срез в списке слов; крестик возвращает весь словарь.
+document.querySelectorAll('.stat-box[data-goto]').forEach(box =>
+  box.addEventListener('click', () => goToWords(box.dataset.goto)));
+document.getElementById('wordsFilterClear').onclick = () => { wordsFilter = null; renderWords(); };
 document.getElementById('newPerDayInput').addEventListener('change', e => {
   const v = parseInt(e.target.value, 10);
   if (v >= 1) { data.newPerDay = v; save(data); updatePlanHint(); updateProgress(); nextCard(); }
