@@ -2254,17 +2254,40 @@ async function requestAi(box, given, card) {
     const res = await apiCall({ url: cfg.url.replace(/\/+$/, ''), token: cfg.token }, '/explain', { wrong, right });
     if (gen !== cardGen) return note.remove();
     const body = res.data || {};
-    note.remove();
     if (res.ok && body.text) {
+      note.remove();
       aiRemember(key, { text: body.text, word: body.word || null });
       appendAi(box, body.text);
       offerNewCard(box, body.word);
+    } else {
+      // Разбор не пришёл. Молчаливое исчезновение «Разбираю…» неотличимо от
+      // «ИИ сломался» — поэтому причину показываем словами, как уже сделано для
+      // мнемоник. Чаще всего это исчерпанный дневной бюджет: объяснения отключаются
+      // первыми, а тренировка «наперёд» идёт как раз в конце занятия, когда бюджет
+      // уже выбран, — поэтому подсказки и «пропадали».
+      note.className = 'muted-note';
+      note.style.cssText = 'margin-top:6px';
+      note.textContent = explainUnavailable(res.status, body);
     }
   } catch (e) {
-    note.remove(); // сеть, таймаут или переход к следующей карточке — молча
+    // Обрыв из-за перехода к следующей карточке — это не сбой, молчим.
+    if (e && e.name === 'AbortError') { note.remove(); return; }
+    note.className = 'muted-note';
+    note.style.cssText = 'margin-top:6px';
+    note.textContent = 'Разбор сейчас недоступен — нет связи с сервером. Правильный ответ показан выше.';
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Почему разбор не пришёл. Бюджет исчерпан — самый частый и ожидаемый случай
+// (объяснения отключаются первыми), поэтому о нём говорим прямо, а не «ошибка».
+function explainUnavailable(status, body) {
+  if ((body && (body.reason === 'budget' || body.budget === false || body.disabled)) || status === 402 || status === 429) {
+    return 'Разбор на сегодня исчерпан: дневной бюджет объяснений закончился (они отключаются первыми). '
+      + 'Правильный ответ показан выше, вернётся завтра.';
+  }
+  return 'Разбор сейчас недоступен. Правильный ответ показан выше.';
 }
 
 //============ Отображение карточки ============
