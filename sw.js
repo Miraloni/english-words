@@ -1,4 +1,4 @@
-const CACHE = 'wordnaut-v44';
+const CACHE = 'wordnaut-v45';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './data/false-friends-ru.json',
   './data/confusions-ru.json',
   './data/mnemonics-ru.json',
+  './data/chunks-ru.json',
 ];
 
 self.addEventListener('install', e => {

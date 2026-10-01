@@ -244,6 +244,11 @@
     animation: viewIn 0.3s var(--ease);
   }
   .mistake-head { font-family: var(--serif); font-size: 17px; color: var(--text); font-weight: 600; }
+  .schema-row { display: flex; align-items: center; gap: 12px; }
+  .schema {
+    width: 66px; height: 44px; flex: none; color: var(--text-dim);
+    stroke: currentColor; fill: none; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round;
+  }
   .mistake-ex { font-family: var(--serif); color: var(--text-faint); }
   .mistake-ai { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--text); }
   .mistake-ai.pending { color: var(--text-faint); font-style: italic; }
@@ -459,6 +464,28 @@
   <symbol id="i-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-graph" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <!-- Схемы предлогов: серое — ориентир, точка — то, о чём говорят. Показываются рядом со словом. -->
+  <symbol id="s-above" viewBox="0 0 48 32"><path d="M4 18H44" stroke-dasharray="2 3" opacity=".5"/><rect x="8" y="18" width="14" height="10" opacity=".5"/><circle cx="34" cy="8" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-over" viewBox="0 0 48 32"><rect x="16" y="20" width="16" height="8" opacity=".5"/><path d="M8 26Q24 0 40 26"/><circle cx="24" cy="13" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-below" viewBox="0 0 48 32"><path d="M4 14H44" stroke-dasharray="2 3" opacity=".5"/><rect x="8" y="4" width="14" height="10" opacity=".5"/><circle cx="34" cy="24" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-under" viewBox="0 0 48 32"><path d="M10 10H38M14 10V27M34 10V27" opacity=".5"/><circle cx="24" cy="22" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-across" viewBox="0 0 48 32"><path d="M4 10H44M4 22H44" opacity=".5"/><path d="M24 7V28"/><path d="M20.5 24.5 24 28l3.5-3.5"/><circle cx="24" cy="4.5" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-through" viewBox="0 0 48 32"><path d="M14 8H34M14 24H34M14 8V11M14 21V24M34 8V11M34 21V24" opacity=".5"/><path d="M11 16H44"/><path d="M40.5 12.5 44 16l-3.5 3.5"/><circle cx="7" cy="16" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-near" viewBox="0 0 48 32"><rect x="8" y="9" width="14" height="14" opacity=".5"/><circle cx="29" cy="16" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-between" viewBox="0 0 48 32"><rect x="4" y="9" width="10" height="14" opacity=".5"/><rect x="34" y="9" width="10" height="14" opacity=".5"/><circle cx="24" cy="16" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-behind" viewBox="0 0 48 32"><path d="M3 16q4-5 8 0q-4 5-8 0z"/><path d="M13 16h3" stroke-dasharray="1 2"/><rect x="18" y="8" width="14" height="16" opacity=".5"/><circle cx="39" cy="16" r="2.6" stroke-dasharray="1.6 1.6"/></symbol>
+  <symbol id="s-in" viewBox="0 0 48 32"><path d="M12 8V26H36V8" opacity=".5"/><circle cx="24" cy="19" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-on" viewBox="0 0 48 32"><path d="M6 22H42" opacity=".5"/><circle cx="24" cy="19.2" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-at" viewBox="0 0 48 32"><circle cx="24" cy="16" r="9" stroke-dasharray="2 3" opacity=".5"/><path d="M24 3V7M24 25V29M11 16H15M33 16H37" opacity=".5"/><circle cx="24" cy="16" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-into" viewBox="0 0 48 32"><path d="M20 14V28H40V14" opacity=".5"/><path d="M8.5 6Q30 2 30 21"/><path d="M26.5 17.5 30 21l3.5-3.5"/><circle cx="6" cy="6.4" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-out" viewBox="0 0 48 32"><path d="M8 14V28H28V14" opacity=".5"/><path d="M18 18.5Q18 5 42 6"/><path d="M38.6 2.8 42 6l-3.4 3.2"/><circle cx="18" cy="21" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-around" viewBox="0 0 48 32"><rect x="18" y="11" width="12" height="10" opacity=".5"/><path d="M24 4a12 12 0 1 1-11.3 8"/><path d="M10 15.2 12.7 12l3.7 1.8"/><circle cx="24" cy="4" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-up" viewBox="0 0 48 32"><path d="M6 29H42" opacity=".5"/><path d="M24 22V5"/><path d="M20.5 8.5 24 5l3.5 3.5"/><circle cx="24" cy="25" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-down" viewBox="0 0 48 32"><path d="M6 29H42" opacity=".5"/><path d="M24 10V25"/><path d="M20.5 21.5 24 25l3.5-3.5"/><circle cx="24" cy="7" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-off" viewBox="0 0 48 32"><path d="M6 22H30" opacity=".5"/><circle cx="16" cy="19.4" r="2.6" stroke-dasharray="1.6 1.6" opacity=".5"/><path d="M19 16Q28 6 38 7"/><circle cx="40.5" cy="7" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-from" viewBox="0 0 48 32"><rect x="4" y="9" width="12" height="14" opacity=".5"/><path d="M20 16H42"/><path d="M38.5 12.5 42 16l-3.5 3.5"/><circle cx="20" cy="16" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-to" viewBox="0 0 48 32"><rect x="32" y="9" width="12" height="14" opacity=".5"/><path d="M9 16H28"/><path d="M24.5 12.5 28 16l-3.5 3.5"/><circle cx="6" cy="16" r="2.6" fill="currentColor"/></symbol>
+  <symbol id="s-away" viewBox="0 0 48 32"><rect x="4" y="11" width="8" height="10" opacity=".5"/><path d="M16 16H34" stroke-dasharray="2 3"/><path d="M30.5 12.5 34 16l-3.5 3.5"/><circle cx="41" cy="16" r="2.6" fill="currentColor"/></symbol>
 </defs></svg>
 <header>
   <span class="logo"><svg class="ico"><use href="#i-book"/></svg></span>
@@ -863,6 +890,8 @@ const CONFIG_DEFAULTS = {
     // дню при этом постоянно — около 7×, свойство конструкции, а не колоды.
     // 120 повторений — это примерно 20-25 минут; проверяется только практикой.
     dailyReviewCap: 120,
+    // ЭВРИСТИКА: сколько связок (put on, turn off…) вводить в день — в счёт нормы новых.
+    chunksPerDay: 3,
     // Сколько оценённых показов нужно, чтобы доверять измеренной доле верных (Э).
     minHistoryForAccuracy: 50,
     // Ниже этого числа наблюдений строка удержания помечается словами (Э):
@@ -1077,6 +1106,51 @@ async function loadMnemonics() {
   return mnLoaded;
 }
 
+// Связки для многозначных глаголов: put → put on, put away. Учатся целиком
+// (Boers, Dang & Strong 2017): по журналу на 01.10.2026 глаголы с размытым значением
+// (put, turn, keep, bring…) забывались в среднем 9,5 раза против 1,4 у обычных слов.
+// В колоду попадают только связки, прочитанные владельцем (src: owner-read):
+// перевод — утверждение о языке, а карточка живёт месяцами.
+let CHUNKS = {};
+let chunksLoaded = null;
+async function loadChunks() {
+  if (chunksLoaded) return chunksLoaded;
+  const l1 = (data.profile && data.profile.l1) || 'ru';
+  chunksLoaded = fetch('./data/chunks-' + l1 + '.json')
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => { CHUNKS = (d && d.entries) || {}; return CHUNKS; })
+    .catch(err => { console.warn('связки не загрузились:', err); return CHUNKS; });
+  return chunksLoaded;
+}
+
+// Добавляет в очередь новых следующую связку для каждого базового слова, которое
+// хоть раз вышло на дни. По одной на слово за раз: связки одного глагола похожи
+// друг на друга, и вместе они мешали бы, как соседи по значению.
+function syncChunks() {
+  let added = 0;
+  for (const base of Object.keys(CHUNKS)) {
+    const owner = data.cards.find(c => normalize(c.en) === base);
+    if (!owner || !graduated(owner)) continue;
+    const mine = data.cards.filter(c => c.chunkOf === base);
+    const busy = mine.some(c => !c.introduced || (c.interval || 0) < CFG.srs.graduatedDays);
+    if (busy) continue;
+    const have = new Set(data.cards.map(c => normalize(c.en)));
+    const next = CHUNKS[base].find(x => x.src === 'owner-read' && !have.has(normalize(x.en)));
+    if (!next) continue;
+    const c = newCard(next.en, next.ru, next.ex);
+    c.origin = 'resource';   // из языкового ресурса приложения, прочитано владельцем
+    c.chunkOf = base;
+    data.cards.push(c);
+    added++;
+  }
+  if (added) save(data);
+  return added;
+}
+
+function chunksIntroducedToday() {
+  return data.cards.filter(c => c.chunkOf && c.introducedOn === today()).length;
+}
+
 function newCard(en, ru, example) {
   return {
     id: 'c' + Math.random().toString(36).slice(2, 9),
@@ -1109,6 +1183,7 @@ function newCard(en, ru, example) {
     prepOk: false,         // получилось ли; если нет — пробуем снова на следующем провале
     retaughtAt: null,      // когда слово в последний раз проходило лечебный проход по западающим
     hits: null,            // { d, n } — верных вводов за день d до выхода на дни (см. criterionLeft)
+    introducedOn: null,    // день первого показа; нужен дневному пределу связок
   };
 }
 
@@ -1416,7 +1491,10 @@ function pickCard() {
   const fresh = newCards().sort((a, b) => a.order - b.order);
   const room = inWorkCards(data).length < CFG.load.maxInWork;
   // Слово, чей сосед по значению ещё в работе, пропускаем: оно подождёт.
-  const next = fresh.find(c => !unsettledSibling(c));
+  // Связки идут первыми — рядом со своим глаголом, — но не больше дневного предела.
+  const chunkRoom = chunksIntroducedToday() < CFG.load.chunksPerDay;
+  const ok = c => !unsettledSibling(c) && (!c.chunkOf || chunkRoom);
+  const next = fresh.find(c => c.chunkOf && ok(c)) || fresh.find(ok);
   if (next && !testToday && data.sessionNew < data.newPerDay && room) return next;
   // 3) сверх лимита и новых не осталось — даём слово для тренировки наперёд.
   //
@@ -1521,7 +1599,7 @@ function countHit(card) {
 // нет доказанного преимущества, поэтому вместо него — фиксированная лестница,
 // и любой верный ответ двигает ровно на одну ступень.
 function grade(card, quality, given) {
-  if (!card.introduced) { card.introduced = true; data.sessionNew++; }
+  if (!card.introduced) { card.introduced = true; card.introducedOn = today(); data.sessionNew++; }
   // Записываем ДО изменения расписания: нужен интервал, который слово отстояло.
   noteOutcome(card, quality, currentMode, given);
   card.seen = (card.seen || 0) + 1;
@@ -1568,6 +1646,7 @@ function grade(card, quality, given) {
     }
   }
 
+  if (CHUNKS[normalize(card.en)] || card.chunkOf) syncChunks();
   registerReview();
   save(data);
 }
@@ -2108,12 +2187,24 @@ function criterionLeft(card) {
   return Math.max(0, need - hits);
 }
 
+// Схема предлога, если она нарисована: over — дуга над объектом, through — сквозь.
+// Объяснение через образ пространства помогает предлогам лучше перевода словом
+// (когнитивная лингвистика, image schemas — несколько экспериментов с учебными группами).
+function schemaSvg(word) {
+  const id = 's-' + normalize(word);
+  return document.getElementById(id) ? `<svg class="schema" aria-hidden="true"><use href="#${id}"/></svg>` : '';
+}
+// Строка «слово — перевод», со схемой слева, если она есть.
+function wordLine(c) {
+  const sch = schemaSvg(c.en);
+  return `<div class="mistake-head${sch ? ' schema-row' : ''}">${sch}<span>${esc(c.en)} — ${esc(c.ru)}</span></div>`;
+}
+
 // Оба слова рядом: пояснения в переводах и запись из таблицы близких слов.
 function contrastBox(card, others) {
   const box = document.createElement('div');
   box.className = 'mistake';
-  box.innerHTML = [card].concat(others)
-    .map(c => `<div class="mistake-head">${esc(c.en)} — ${esc(c.ru)}</div>`).join('')
+  box.innerHTML = [card].concat(others).map(wordLine).join('')
     + others.map(o => {
       const pair = CONFUSIONS[[normalize(o.en), normalize(card.en)].sort().join('|')];
       return pair ? pair.map((t, i) => `<div${i ? ' class="mistake-ex"' : ''}>${esc(t)}</div>`).join('') : '';
@@ -2196,7 +2287,11 @@ function explainMistake(given, card) {
   if (!pair && !known) return '';
 
   const parts = [];
-  if (known) parts.push(`<div class="mistake-head">${esc(known.en)} — ${esc(known.ru)}</div>`);
+  if (known) {
+    // Две схемы рядом показывают разницу лучше слов: over и above, across и through.
+    if (schemaSvg(known.en) && schemaSvg(card.en)) parts.push(wordLine(card));
+    parts.push(wordLine(known));
+  }
   if (pair) {
     parts.push(`<div>${esc(pair[0])}</div>`);
     if (pair[1]) parts.push(`<div class="mistake-ex">${esc(pair[1])}</div>`);
@@ -2558,6 +2653,14 @@ function renderChoice(dir) {
           : btn.dataset.v;
         hold = !!(givenEn && showMistake(area, givenEn, current));
       }
+      if (!known.length && schemaSvg(current.en) && current.seen <= 1) {
+        // Первая встреча с предлогом: схема вместо таймера, чтобы её рассмотреть
+        const sb = document.createElement('div');
+        sb.className = 'mistake';
+        sb.innerHTML = wordLine(current);
+        area.appendChild(sb);
+        hold = true;
+      }
       if (known.length) {
         const head = document.createElement('div');
         head.className = 'muted-note';
@@ -2678,6 +2781,14 @@ function checkTyped(value) {
     const check = document.getElementById('checkBtn');
     if (check) check.remove();
     showMistake(area, value, current);
+    // Схема загаданного предлога, если разбор выше её уже не показал
+    const typed = data.cards.find(c => normalize(c.en) === normalize(value));
+    if (schemaSvg(current.en) && !(typed && schemaSvg(typed.en))) {
+      const sb = document.createElement('div');
+      sb.className = 'mistake';
+      sb.innerHTML = wordLine(current);
+      area.appendChild(sb);
+    }
     if (current.example) showExample(area);
     const btn = document.createElement('div');
     btn.className = 'btn-row';
@@ -2945,6 +3056,7 @@ function renderRescue() {
       <div class="word">${esc(current.en)}</div>
       <button class="speak-btn" id="speakBtn" title="Произнести"><svg class="ico"><use href="#i-sound"/></svg></button>
       <div class="translation">${esc(current.ru)}</div>
+      ${schemaSvg(current.en).replace('class="schema"', 'class="schema" style="width:120px;height:80px"')}
       <div class="rescue-count">провалено раз: ${current.lapses}</div>
       ${hint ? `<div class="rescue-hint">${hintBlock(hint, 'keyword')}</div>` : ''}
       <div id="imgHost" style="width:100%"></div>
@@ -3264,7 +3376,7 @@ function importCards(arr) {
     data.cards.unshift(newCard(o.en, o.ru, o.example));
     added++;
   }
-  if (added) save(data);
+  if (added) { save(data); syncChunks(); }
   return { added, skipped };
 }
 
@@ -4456,6 +4568,7 @@ nextCard();
 // и функция просто не включится.
 loadConfusions().then(() => { if (document.getElementById('confBox')) renderConfStats(); });
 loadMnemonics().then(() => { if (document.getElementById('confBox')) renderConfStats(); });
+loadChunks().then(() => { if (syncChunks()) updateProgress(); });
 loadFalseFriends().then(() => {
   if (document.getElementById('trapsBox')) { renderTraps(); renderFfReview(); }
   if (!current) renderCard();     // экран «план выполнен» мог быть построен до загрузки

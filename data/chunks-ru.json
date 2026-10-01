@@ -1,0 +1,90 @@
+{
+ "v": 1,
+ "l1": "ru",
+ "note": "Связки для многозначных глаголов: ключ — базовое слово колоды, значение — устойчивые сочетания, которые учатся целиком (Boers, Dang & Strong 2017). Связка вводится только после базового слова. src: assistant-read — составлено ассистентом, не сверено; owner-read — прочитано владельцем.",
+ "entries": {
+  "agree": [{ "en": "agree with", "ru": "соглашаться с кем-либо", "ex": "I agree with you.", "src": "owner-read" }],
+  "ask": [{ "en": "ask for", "ru": "просить что-либо", "ex": "She asked for some water.", "src": "owner-read" }],
+  "believe": [{ "en": "believe in", "ru": "верить в", "ex": "Do you believe in luck?", "src": "owner-read" }],
+  "break": [{ "en": "break down", "ru": "сломаться (о машине, технике)", "ex": "Our car broke down on the way.", "src": "owner-read" }],
+  "bring": [{ "en": "bring back", "ru": "принести обратно", "ex": "Please bring back my book tomorrow.", "src": "owner-read" }],
+  "call": [{ "en": "call back", "ru": "перезвонить", "ex": "I'm busy now, I'll call you back.", "src": "owner-read" }],
+  "change": [{ "en": "change your mind", "ru": "передумать", "ex": "If you change your mind, tell me.", "src": "owner-read" }],
+  "check": [{ "en": "check in", "ru": "зарегистрироваться (в отеле, аэропорту)", "ex": "We checked in at the hotel at six.", "src": "owner-read" }],
+  "clean": [{ "en": "clean up", "ru": "прибраться", "ex": "Let's clean up the kitchen.", "src": "owner-read" }],
+  "come": [
+   { "en": "come back", "ru": "вернуться", "ex": "Come back soon!", "src": "owner-read" },
+   { "en": "come in", "ru": "войти", "ex": "Come in and sit down.", "src": "owner-read" }
+  ],
+  "do": [{ "en": "do homework", "ru": "делать домашнее задание", "ex": "I do my homework after dinner.", "src": "owner-read" }],
+  "dress": [{ "en": "get dressed", "ru": "одеться", "ex": "Get dressed, we're late!", "src": "owner-read" }],
+  "eat": [{ "en": "eat out", "ru": "поесть вне дома", "ex": "We eat out on Fridays.", "src": "owner-read" }],
+  "feel": [{ "en": "feel like", "ru": "хотеться (чего-то)", "ex": "I feel like a cup of tea.", "src": "owner-read" }],
+  "find": [{ "en": "find out", "ru": "выяснить", "ex": "I want to find out the truth.", "src": "owner-read" }],
+  "get": [
+   { "en": "get up", "ru": "вставать (утром)", "ex": "I get up at seven.", "src": "owner-read" },
+   { "en": "get on", "ru": "садиться в (автобус, поезд)", "ex": "Get on the bus here.", "src": "owner-read" },
+   { "en": "get off", "ru": "выйти (из автобуса, поезда)", "ex": "Get off at the next stop.", "src": "owner-read" },
+   { "en": "get better", "ru": "поправиться, стать лучше", "ex": "I hope you get better soon.", "src": "owner-read" }
+  ],
+  "give": [{ "en": "give up", "ru": "сдаться, бросить", "ex": "Don't give up!", "src": "owner-read" }],
+  "go": [
+   { "en": "go out", "ru": "сходить куда-нибудь (развлечься)", "ex": "Let's go out tonight.", "src": "owner-read" },
+   { "en": "go to bed", "ru": "ложиться спать", "ex": "I go to bed at eleven.", "src": "owner-read" },
+   { "en": "go on", "ru": "продолжаться", "ex": "The party went on all night.", "src": "owner-read" }
+  ],
+  "grow": [{ "en": "grow up", "ru": "вырасти, повзрослеть", "ex": "I grew up in a small town.", "src": "owner-read" }],
+  "have": [
+   { "en": "have breakfast", "ru": "завтракать", "ex": "We have breakfast at eight.", "src": "owner-read" },
+   { "en": "have a good time", "ru": "хорошо провести время", "ex": "Have a good time at the party!", "src": "owner-read" },
+   { "en": "have to", "ru": "приходится, нужно", "ex": "I have to work tomorrow.", "src": "owner-read" }
+  ],
+  "help": [{ "en": "help with", "ru": "помочь с чем-либо", "ex": "Can you help me with my bag?", "src": "owner-read" }],
+  "keep": [
+   { "en": "keep going", "ru": "не останавливаться", "ex": "You're doing well, keep going!", "src": "owner-read" },
+   { "en": "keep in touch", "ru": "поддерживать связь", "ex": "Let's keep in touch.", "src": "owner-read" }
+  ],
+  "laugh": [{ "en": "laugh at", "ru": "смеяться над", "ex": "Don't laugh at me!", "src": "owner-read" }],
+  "let": [{ "en": "let in", "ru": "впустить", "ex": "Please let the cat in.", "src": "owner-read" }],
+  "listen": [{ "en": "listen to", "ru": "слушать кого-либо, что-либо", "ex": "I listen to music every day.", "src": "owner-read" }],
+  "look": [
+   { "en": "look for", "ru": "искать", "ex": "I'm looking for my keys.", "src": "owner-read" },
+   { "en": "look at", "ru": "смотреть на", "ex": "Look at this photo!", "src": "owner-read" },
+   { "en": "look like", "ru": "быть похожим на", "ex": "You look like your mother.", "src": "owner-read" }
+  ],
+  "lose": [{ "en": "lose weight", "ru": "похудеть", "ex": "He wants to lose weight.", "src": "owner-read" }],
+  "make": [
+   { "en": "make a mistake", "ru": "ошибиться", "ex": "Everyone makes mistakes.", "src": "owner-read" },
+   { "en": "make friends", "ru": "заводить друзей", "ex": "She makes friends easily.", "src": "owner-read" }
+  ],
+  "meet": [{ "en": "meet up", "ru": "встретиться (с друзьями)", "ex": "Let's meet up on Saturday.", "src": "owner-read" }],
+  "miss": [{ "en": "miss the bus", "ru": "опоздать на автобус", "ex": "Hurry, or we'll miss the bus!", "src": "owner-read" }],
+  "pay": [{ "en": "pay for", "ru": "заплатить за", "ex": "I'll pay for the coffee.", "src": "owner-read" }],
+  "put": [
+   { "en": "put on", "ru": "надеть", "ex": "Put on your coat, it's cold.", "src": "owner-read" },
+   { "en": "put away", "ru": "убрать на место", "ex": "Put away your toys.", "src": "owner-read" }
+  ],
+  "see": [{ "en": "see you", "ru": "увидимся", "ex": "See you tomorrow!", "src": "owner-read" }],
+  "show": [{ "en": "show around", "ru": "показать (город, дом)", "ex": "I'll show you around the city.", "src": "owner-read" }],
+  "sit": [{ "en": "sit down", "ru": "сесть", "ex": "Please sit down.", "src": "owner-read" }],
+  "speak": [{ "en": "speak up", "ru": "говорить громче", "ex": "Can you speak up, please?", "src": "owner-read" }],
+  "stay": [{ "en": "stay at home", "ru": "оставаться дома", "ex": "I stayed at home yesterday.", "src": "owner-read" }],
+  "take": [
+   { "en": "take off", "ru": "снять (одежду)", "ex": "Take off your shoes, please.", "src": "owner-read" },
+   { "en": "take a photo", "ru": "сфотографировать", "ex": "Can you take a photo of us?", "src": "owner-read" },
+   { "en": "take a shower", "ru": "принять душ", "ex": "I take a shower every morning.", "src": "owner-read" }
+  ],
+  "talk": [{ "en": "talk to", "ru": "разговаривать с", "ex": "I need to talk to you.", "src": "owner-read" }],
+  "tell": [{ "en": "tell the truth", "ru": "говорить правду", "ex": "Always tell the truth.", "src": "owner-read" }],
+  "think": [{ "en": "think about", "ru": "думать о", "ex": "What are you thinking about?", "src": "owner-read" }],
+  "try": [{ "en": "try on", "ru": "примерить", "ex": "Can I try on this dress?", "src": "owner-read" }],
+  "turn": [
+   { "en": "turn on", "ru": "включить", "ex": "Turn on the light, please.", "src": "owner-read" },
+   { "en": "turn off", "ru": "выключить", "ex": "Turn off your phone.", "src": "owner-read" }
+  ],
+  "wait": [{ "en": "wait for", "ru": "ждать кого-либо, чего-либо", "ex": "I'm waiting for the bus.", "src": "owner-read" }],
+  "watch": [{ "en": "watch out", "ru": "осторожно! (берегись)", "ex": "Watch out! A car!", "src": "owner-read" }],
+  "work": [{ "en": "work out", "ru": "тренироваться", "ex": "I work out three times a week.", "src": "owner-read" }],
+  "write": [{ "en": "write down", "ru": "записать", "ex": "Write down my number.", "src": "owner-read" }]
+ }
+}
