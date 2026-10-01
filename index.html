@@ -818,7 +818,14 @@ const CONFIG_DEFAULTS = {
     // ЭВРИСТИКА: пауза после единственного ознакомительного показа.
     firstStepMin: 1,
     // Возврат прощённой опечатки внутри сессии (P1-C). ЭВРИСТИКА.
-    typoReturnMin: 10
+    typoReturnMin: 10,
+    // Сколько верных вводов за день нужно забывавшемуся слову, чтобы выйти на дни:
+    // 1 + число забываний, но не больше этого. Rawson & Dunlosky: три верных в первом
+    // занятии держатся лучше одного. По журналу на 01.10.2026 через сутки вспоминались
+    // слова без забываний — 100%, с одним — 82%, с двумя — 75%, с тремя и больше — ~50%.
+    relearnCriterionMax: 3,
+    // ЭВРИСТИКА: пауза между этими вводами — чтобы между ними прошли другие слова.
+    criterionGapMin: 5
   },
   modes: {
     // И1: узнавание нужно только для знакомства со словом, дальше — извлечение.
@@ -1101,6 +1108,7 @@ function newCard(en, ru, example) {
     prepAt: null,          // при скольких провалах последний раз пробовали подготовить подсказку
     prepOk: false,         // получилось ли; если нет — пробуем снова на следующем провале
     retaughtAt: null,      // когда слово в последний раз проходило лечебный проход по западающим
+    hits: null,            // { d, n } — верных вводов за день d до выхода на дни (см. criterionLeft)
   };
 }
 
@@ -1407,7 +1415,9 @@ function pickCard() {
   const testToday = data.lastTestDate === today();
   const fresh = newCards().sort((a, b) => a.order - b.order);
   const room = inWorkCards(data).length < CFG.load.maxInWork;
-  if (fresh.length && !testToday && data.sessionNew < data.newPerDay && room) return fresh[0];
+  // Слово, чей сосед по значению ещё в работе, пропускаем: оно подождёт.
+  const next = fresh.find(c => !unsettledSibling(c));
+  if (next && !testToday && data.sessionNew < data.newPerDay && room) return next;
   // 3) сверх лимита и новых не осталось — даём слово для тренировки наперёд.
   //
   // Раньше здесь бралось «ближайшее будущее слово», и это зацикливалось: провал
@@ -1496,6 +1506,11 @@ const TYPED_MODES = ['type', 'cloze', 'listen'];
 // Слово вышло на дневные интервалы. Провал возвращает его обратно в заучивание.
 function graduated(card) { return (card.step || 0) > 0; }
 
+// Засчитать верный ввод за сегодня.
+function countHit(card) {
+  card.hits = card.hits && card.hits.d === today() ? { d: card.hits.d, n: card.hits.n + 1 } : { d: today(), n: 1 };
+}
+
 // quality: 'again' | 'typo' | 'alt' | 'good' | 'easy'
 // given — что введено руками; пишется в журнал при ошибке и при синониме.
 //
@@ -1542,9 +1557,15 @@ function grade(card, quality, given) {
     // не то же самое, что вспомнить (И1). На лестницу пускаем только после ввода руками.
     card.due = Date.now() + CFG.srs.firstStepMin * 60 * 1000;
   } else {
-    card.step = (card.step || 0) + 1;
-    card.interval = ladderInterval(card.step);
-    card.due = Date.now() + card.interval * DAY;
+    if (!graduated(card)) countHit(card);
+    if (!graduated(card) && criterionLeft(card) > 0) {
+      // Забывавшееся слово выходит на дни не с первого верного ввода, а с 2–3 за день.
+      card.due = Date.now() + CFG.srs.criterionGapMin * 60 * 1000;
+    } else {
+      card.step = (card.step || 0) + 1;
+      card.interval = ladderInterval(card.step);
+      card.due = Date.now() + card.interval * DAY;
+    }
   }
 
   registerReview();
@@ -2060,10 +2081,44 @@ function ruSenses(ru) {
 function siblingAnswer(input, card) {
   const ni = normalize(input);
   if (!ni || isMatch(ni, card.en)) return null;
+  return siblingsOf(card).find(c => isMatch(ni, c.en)) || null;
+}
+
+// Слова колоды с общим русским значением.
+function siblingsOf(card) {
   const mine = new Set(ruSenses(card.ru));
-  if (!mine.size) return null;
-  return data.cards.find(c => c !== card && c.confirmed !== false && isMatch(ni, c.en)
-    && ruSenses(c.ru).some(s => mine.has(s))) || null;
+  if (!mine.size) return [];
+  return data.cards.filter(c => c !== card && c.confirmed !== false
+    && ruSenses(c.ru).some(s => mine.has(s)));
+}
+
+// Сосед по значению, который сейчас в работе. Похожие слова, выученные вместе,
+// мешают друг другу (Tinkham 1993, Waring 1997; метаанализ 30 работ — заметно больше
+// попыток до заучивания), а западающие слова колоды как раз такие пары. Поэтому новое
+// слово ждёт, пока сосед не закрепится, и вводится уже рядом с ним, на контрасте.
+function unsettledSibling(card) {
+  return siblingsOf(card).find(c => c.introduced && c.due !== null
+    && (c.interval || 0) < CFG.srs.graduatedDays) || null;
+}
+
+// Сколько верных вводов за сегодня ещё нужно, чтобы слово вышло на дни.
+function criterionLeft(card) {
+  const need = Math.min(CFG.srs.relearnCriterionMax, 1 + (card.forgets || 0));
+  const hits = card.hits && card.hits.d === today() ? card.hits.n : 0;
+  return Math.max(0, need - hits);
+}
+
+// Оба слова рядом: пояснения в переводах и запись из таблицы близких слов.
+function contrastBox(card, others) {
+  const box = document.createElement('div');
+  box.className = 'mistake';
+  box.innerHTML = [card].concat(others)
+    .map(c => `<div class="mistake-head">${esc(c.en)} — ${esc(c.ru)}</div>`).join('')
+    + others.map(o => {
+      const pair = CONFUSIONS[[normalize(o.en), normalize(card.en)].sort().join('|')];
+      return pair ? pair.map((t, i) => `<div${i ? ' class="mistake-ex"' : ''}>${esc(t)}</div>`).join('') : '';
+    }).join('');
+  return box;
 }
 
 // Настоящее слово, которое человек мог иметь в виду: из колоды или из таблицы
@@ -2462,6 +2517,8 @@ function renderChoice(dir) {
   shuffle(distractors);
   const opts = shuffle([correct, ...distractors.slice(0, 3)]);
 
+  // Новое слово, у которого сосед по значению уже выучен, вводится рядом с ним.
+  const known = current.introduced ? [] : siblingsOf(current).filter(c => c.introduced);
   const area = document.getElementById('cardArea');
   area.innerHTML = `
     <div class="card">
@@ -2492,22 +2549,32 @@ function renderChoice(dir) {
       fb.className = 'feedback ' + (ok ? 'ok' : 'no');
       grade(current, ok ? 'good' : 'again');
 
+      const area = document.getElementById('cardArea');
+      let hold = false;
       if (!ok) {
         // при выборе перевода надо сначала понять, какому слову он принадлежит
         const givenEn = askEn
           ? (data.cards.find(c => c.ru === btn.dataset.v) || {}).en
           : btn.dataset.v;
-        const area = document.getElementById('cardArea');
-        const box = givenEn ? showMistake(area, givenEn, current) : null;
-        if (box) {
-          const next = document.createElement('button');
-          next.className = 'btn-primary';
-          next.style.cssText = 'align-self:flex-end;margin-top:14px';
-          next.textContent = 'Дальше';
-          next.onclick = nextCard;
-          area.appendChild(next);
-          return; // не уводим по таймеру — даём прочитать разбор
-        }
+        hold = !!(givenEn && showMistake(area, givenEn, current));
+      }
+      if (known.length) {
+        const head = document.createElement('div');
+        head.className = 'muted-note';
+        head.style.marginTop = '12px';
+        head.textContent = 'Не путать с похожим по значению:';
+        area.appendChild(head);
+        area.appendChild(contrastBox(current, known));
+        hold = true;
+      }
+      if (hold) {
+        const next = document.createElement('button');
+        next.className = 'btn-primary';
+        next.style.cssText = 'align-self:flex-end;margin-top:14px';
+        next.textContent = 'Дальше';
+        next.onclick = nextCard;
+        area.appendChild(next);
+        return; // не уводим по таймеру — даём прочитать
       }
       setTimeout(nextCard, ok ? 750 : 1600);
     };
@@ -2577,13 +2644,7 @@ function checkTyped(value) {
     if (check) check.remove();
     // Разница видна по пояснениям в переводах обоих слов и по таблице близких слов.
     // К серверу не обращаемся: ошибки, которую нужно разбирать, здесь нет.
-    const pair = CONFUSIONS[[normalize(sib.en), normalize(current.en)].sort().join('|')];
-    const box = document.createElement('div');
-    box.className = 'mistake';
-    box.innerHTML = `<div class="mistake-head">${esc(current.en)} — ${esc(current.ru)}</div>`
-      + `<div class="mistake-head">${esc(sib.en)} — ${esc(sib.ru)}</div>`
-      + (pair ? pair.map((t, i) => `<div${i ? ' class="mistake-ex"' : ''}>${esc(t)}</div>`).join('') : '');
-    area.appendChild(box);
+    area.appendChild(contrastBox(current, [sib]));
     if (current.example) showExample(area);
     const btn = document.createElement('div');
     btn.className = 'btn-row';
@@ -2606,7 +2667,9 @@ function checkTyped(value) {
       fb.textContent = 'Верно · ' + current.en;
       fb.className = 'feedback ok';
       grade(current, confidenceQuality(mode, normalize(current.en)));
-      setTimeout(nextCard, 850);
+      const left = graduated(current) ? 0 : criterionLeft(current);
+      if (left) fb.textContent += ' · ещё ' + left + ' раз сегодня — и слово выйдет на дни';
+      setTimeout(nextCard, left ? 1600 : 850);
     }
   } else {
     fb.innerHTML = 'Правильно: <b>' + esc(current.en) + '</b> — ' + esc(current.ru);
