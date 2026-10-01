@@ -170,6 +170,7 @@
   .type-input:focus { outline: none; border-bottom-color: var(--text); }
   .type-input.correct { border-bottom-color: var(--ok); color: var(--ok); }
   .type-input.wrong { border-bottom-color: var(--no); color: var(--no); }
+  .type-input.alt { border-bottom-color: var(--text-dim); color: var(--text-dim); }
 
   .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
   .choice {
@@ -189,6 +190,7 @@
   .feedback { font-size: 15px; font-weight: 500; min-height: 22px; }
   .feedback.ok { color: var(--ok); }
   .feedback.no { color: var(--no); }
+  .feedback.alt { color: var(--text-dim); }
   .feedback b { font-family: var(--serif); font-size: 17px; color: var(--text); }
 
   .rate-buttons { display: flex; gap: 8px; width: 100%; }
@@ -1417,12 +1419,19 @@ function pickCard() {
   // по давности показа, а не по сроку: так тренировка обходит колоду, а не топчется
   // на одном слове.
   if (overLimit) {
-    const future = data.cards
-      .filter(c => c.due !== null && (c.interval || 0) > 0 && c !== current)
-      .sort(byCoverage);
+    const future = aheadPool().sort(byCoverage);
     if (future.length) return future[0];
   }
   return null;
+}
+
+// Что имеет смысл повторять наперёд: слова ещё в работе и западающие.
+// Закреплённое наперёд не берём: по журналу на 01.10.2026 такие повторы шли
+// примерно на 13% интервала с 96% верных — 723 повторения, 28% всей работы,
+// почти без пользы для памяти.
+function aheadPool() {
+  return data.cards.filter(c => c.due !== null && (c.interval || 0) > 0 && c !== current
+    && ((c.interval || 0) < CFG.srs.graduatedDays || (c.lapses || 0) >= data.leechThreshold));
 }
 
 
@@ -1487,7 +1496,8 @@ const TYPED_MODES = ['type', 'cloze', 'listen'];
 // Слово вышло на дневные интервалы. Провал возвращает его обратно в заучивание.
 function graduated(card) { return (card.step || 0) > 0; }
 
-// quality: 'again' | 'typo' | 'good' | 'easy'
+// quality: 'again' | 'typo' | 'alt' | 'good' | 'easy'
+// given — что введено руками; пишется в журнал при ошибке и при синониме.
 //
 // easy и good обрабатываются ОДИНАКОВО, и это не упущение. Раньше easy поднимал
 // ease на 0.15 без верхней границы и умножал интервал на 1.3. После P1-C порог
@@ -1495,16 +1505,18 @@ function graduated(card) { return (card.step || 0) > 0; }
 // 84% карточек упирались в потолок интервала за 12 предъявлений. По И2 у множителя
 // нет доказанного преимущества, поэтому вместо него — фиксированная лестница,
 // и любой верный ответ двигает ровно на одну ступень.
-function grade(card, quality) {
+function grade(card, quality, given) {
   if (!card.introduced) { card.introduced = true; data.sessionNew++; }
   // Записываем ДО изменения расписания: нужен интервал, который слово отстояло.
-  noteOutcome(card, quality, currentMode);
+  noteOutcome(card, quality, currentMode, given);
   card.seen = (card.seen || 0) + 1;
   card.lastSeen = Date.now();
 
-  if (quality === 'typo') {
+  if (quality === 'typo' || quality === 'alt') {
     // Слово известно, написание — нет. Расписание не трогаем совсем, но
     // возвращаем карточку в этой же сессии, чтобы написание было воспроизведено.
+    // Синоним из колоды — то же самое по смыслу: значение вспомнено, не вспомнено
+    // только, какое из двух слов загадано. Провалом это не считается.
     card.due = Date.now() + CFG.srs.typoReturnMin * 60 * 1000;
   } else if (quality === 'again') {
     card.lapses = (card.lapses || 0) + 1;
@@ -1583,11 +1595,11 @@ function outcomes() {
 
 // Пишется до изменения расписания: нужен интервал, КОТОРЫЙ УЖЕ ОТСТОЯЛИ,
 // а не тот, который будет назначен.
-function noteOutcome(card, quality, mode) {
+function noteOutcome(card, quality, mode, given) {
   const iv = card.interval || 0;
   if (iv <= 0) return;                       // заучивание внутри сессии не измеряет удержание
   const log = outcomes();
-  log.push({
+  const entry = {
     t: Date.now(),
     w: normalize(card.en),                   // нужно, чтобы связать исход со словом
     iv: iv,                                  // назначенный интервал
@@ -1602,8 +1614,14 @@ function noteOutcome(card, quality, mode) {
     // Прощённая опечатка засчитана как верный ответ, но написание не воспроизведено.
     // Подробности (слово, что введено, какое правило) лежат в wordnaut-typos:
     // здесь только признак, чтобы их можно было сопоставить по времени, а не дублировать.
-    typo: quality === 'typo'
-  });
+    typo: quality === 'typo',
+    // Введён синоним из колоды (under вместо below): засчитан верным, расписание не тронуто.
+    alt: quality === 'alt'
+  };
+  // Что введено вместо верного. Без этого причину провала приходилось выводить
+  // из словаря, а не из ответов: «западает» и «путается с соседом» — разные лечения.
+  if (given && (quality === 'again' || quality === 'alt')) entry.g = normalize(given).slice(0, 40);
+  log.push(entry);
   safeSet(OUTCOME_STORE, JSON.stringify(log.length > OUTCOME_MAX ? log.slice(-OUTCOME_MAX) : log));
 }
 
@@ -2027,6 +2045,34 @@ function isMatch(input, answer) {
   return variants(answer).some(v => v === ni);
 }
 
+// Значения перевода без пояснений в скобках: «ниже (по уровню)» → «ниже».
+// Пояснения различают слова для человека, но общее значение остаётся общим.
+// Ё не сводится к е: «всё» (all) и «все» (everyone) — разные значения.
+function ruSenses(ru) {
+  return String(ru || '').replace(/\([^)]*\)/g, ' ').split(/[,;/]/)
+    .map(s => s.trim().toLowerCase().replace(/\s+/g, ' ')).filter(Boolean);
+}
+
+// Введено другое слово колоды с тем же русским значением: under на «под (…)»,
+// когда загадано below. По голому русскому слову такие ответы неразличимы, и по
+// журналу на 01.10.2026 слова из таких пар забывались в 2,6 раза чаще остальных —
+// верный английский засчитывался провалом и откатывал слово в начало лестницы.
+function siblingAnswer(input, card) {
+  const ni = normalize(input);
+  if (!ni || isMatch(ni, card.en)) return null;
+  const mine = new Set(ruSenses(card.ru));
+  if (!mine.size) return null;
+  return data.cards.find(c => c !== card && c.confirmed !== false && isMatch(ni, c.en)
+    && ruSenses(c.ru).some(s => mine.has(s))) || null;
+}
+
+// Настоящее слово, которое человек мог иметь в виду: из колоды или из таблицы
+// близких слов. Перестановка, давшая такое слово, — путаница, а не промах пальцем.
+function isKnownWord(w) {
+  if (data && data.cards && data.cards.some(c => normalize(c.en) === w)) return true;
+  return Object.keys(confMeta).some(k => k.split('|').includes(w));
+}
+
 const VOWELS = 'aeiouy';
 
 // Перестановка двух соседних букв. Прощаем только если хотя бы одна из них
@@ -2071,8 +2117,9 @@ function typoKind(input, answer) {
   const ni = normalize(input);
   if (!ni) return null;
   // Перестановка иногда даёт другое настоящее слово: form вместо from, quite вместо quiet.
-  // Введено другое слово из колоды — это не промах пальцем, а путаница, и она неверна.
-  if (data && data.cards && data.cards.some(c => normalize(c.en) === ni)) return null;
+  // Введено другое настоящее слово — это не промах пальцем, а путаница, и она неверна.
+  // Одной колоды мало: quite не было в колоде, и quiet → quite прощалось четыре раза.
+  if (isKnownWord(ni)) return null;
   for (const v of variants(answer)) {
     if (v.length < 4) continue;          // на коротких словах прощать нечего
     if (isTranspose(v, ni)) return 'перестановка';
@@ -2363,15 +2410,15 @@ function renderCard() {
   const area = document.getElementById('cardArea');
   if (!current) {
     // Новые слова сверх нормы не предлагаем вовсе — «дальше» значит только
-    // повторить наперёд то, что уже в работе.
-    const hasFuture = data.cards.some(c => c.due !== null);
-    const canMore = hasFuture;
+    // повторить наперёд то, что уже в работе. Кнопка видна, только если ей есть
+    // что выдать: иначе она нажималась бы вхолостую.
+    const canMore = aheadPool().length > 0;
     area.innerHTML = `
       <div class="empty">
         <div class="big"><svg class="ico"><use href="#i-done"/></svg></div>
         <p>Дневной план выполнен!</p>
         <p style="font-size:13px">${canMore
-          ? 'Новые слова на сегодня закончились. Можно повторить наперёд то, что уже в работе.'
+          ? 'Новые слова на сегодня закончились. Можно повторить наперёд слова в работе и западающие.'
           : 'Ничего не осталось — возвращайся завтра.'}</p>
         ${canMore ? '<button class="btn-primary" id="aheadBtn">Учить дальше</button>' : ''}
       </div>`;
@@ -2513,12 +2560,38 @@ function checkTyped(value) {
   const exact = isMatch(value, current.en);
   const rule = exact ? null : typoKind(value, current.en);
   const ok = exact || !!rule;
+  // Синоним ловим только в голом вводе по-русски: в пропуске выбор решает
+  // предложение, и соседнее слово там — настоящая ошибка.
+  const sib = !ok && mode === 'type' ? siblingAnswer(value, current) : null;
 
-  input.classList.add(ok ? 'correct' : 'wrong');
+  input.classList.add(ok ? 'correct' : sib ? 'alt' : 'wrong');
   input.disabled = true;
   speak(current.en);
 
-  if (ok) {
+  if (sib) {
+    fb.innerHTML = '<b>' + esc(sib.en) + '</b> — тоже подходит, но здесь загадано <b>'
+      + esc(current.en) + '</b>';
+    fb.className = 'feedback alt';
+    const area = document.getElementById('cardArea');
+    const check = document.getElementById('checkBtn');
+    if (check) check.remove();
+    // Разница видна по пояснениям в переводах обоих слов и по таблице близких слов.
+    // К серверу не обращаемся: ошибки, которую нужно разбирать, здесь нет.
+    const pair = CONFUSIONS[[normalize(sib.en), normalize(current.en)].sort().join('|')];
+    const box = document.createElement('div');
+    box.className = 'mistake';
+    box.innerHTML = `<div class="mistake-head">${esc(current.en)} — ${esc(current.ru)}</div>`
+      + `<div class="mistake-head">${esc(sib.en)} — ${esc(sib.ru)}</div>`
+      + (pair ? pair.map((t, i) => `<div${i ? ' class="mistake-ex"' : ''}>${esc(t)}</div>`).join('') : '');
+    area.appendChild(box);
+    if (current.example) showExample(area);
+    const btn = document.createElement('div');
+    btn.className = 'btn-row';
+    btn.style.justifyContent = 'flex-end';
+    btn.innerHTML = '<button class="btn-primary" id="contBtn">Дальше</button>';
+    area.appendChild(btn);
+    document.getElementById('contBtn').onclick = () => { grade(current, 'alt', value); nextCard(); };
+  } else if (ok) {
     const okBtn = document.getElementById('checkBtn');
     if (okBtn) okBtn.remove();
     if (rule) {
@@ -2550,7 +2623,7 @@ function checkTyped(value) {
     // верного ответа систематически завышена, а промах пальцем теперь распознаётся сам.
     btn.innerHTML = '<button class="btn-primary" id="contBtn">Дальше</button>';
     area.appendChild(btn);
-    document.getElementById('contBtn').onclick = () => { grade(current, 'again'); nextCard(); };
+    document.getElementById('contBtn').onclick = () => { grade(current, 'again', value); nextCard(); };
   }
 }
 
@@ -3469,13 +3542,15 @@ function renderRetention() {
     return '<tr><td>' + iv + ' дн</td>' + cell + '</tr>';
   }).join('');
   const typos = log.filter(r => r.typo).length;
+  const alts = log.filter(r => r.alt).length;
   box.innerHTML = '<table style="width:100%"><tr>'
     + '<td class="muted-note">интервал</td>'
     + '<td class="muted-note" style="text-align:right">вспомнила</td>'
     + '<td class="muted-note" style="text-align:right">проверок</td></tr>' + rows + '</table>'
     + '<span class="muted-note" style="display:block;margin-top:8px">Всего наблюдений: ' + log.length
     + (early ? ' · не в счёт, отвечено раньше срока: ' + early : '')
-    + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '') + '</span>';
+    + (typos ? ' · из них прощённых опечаток: ' + typos + ' (засчитаны верными)' : '')
+    + (alts ? ' · синонимов из колоды: ' + alts + ' (засчитаны верными)' : '') + '</span>';
 }
 
 // ФОРМА ДНЯ. Не «сколько выучено», а насколько качественно шла проработка в этот
